@@ -27,7 +27,7 @@ export function sampleMotion(time,walk,kind,progress=0,combo=1){
  }else if(kind==='kick'){
   frames=[[0,key()],[.28,key({left:[-.9,-1.3,-1,.95],right:[-.2,-1.4,.12,.08],lean:-.12,drop:-.04})],[.48,key({left:[-.2,-1.25,-1.6,.05],right:[-.85,-1.2,.1,.08],lean:-.25})],[.62,key({left:[-.2,-1.25,-1.5,.08],lean:-.2})],[.8,key({left:[-.6,-1.3,-.85,.85],lean:-.1})],[1,key()]];
  }else{
-  frames=[[0,key()],[.24,key({left:[-.25,-1.4,-.7,.9],twist:-.45,drop:-.06})],[.5,key({left:[-1.25,-.2,-1.5,.08],right:[-.8,-.3,0,.1],twist:.2,spin:Math.PI})],[.72,key({left:[-1,-.3,-1.45,.12],right:[-.8,-.4,0,.1],spin:Math.PI*1.85})],[1,key({spin:Math.PI*2})]];
+  frames=[[0,key()],[.2,key({left:[.15,-1.35,-.12,.18],right:[.15,-1.35,.12,.18],lean:-.12,drop:-.04})],[.8,key({left:[.15,-1.35,-.12,.18],right:[.15,-1.35,.12,.18],lean:-.12,drop:-.04})],[1,key()]];
  }
  const t=Math.max(0,Math.min(1,progress));let i=1;while(i<frames.length-1&&t>frames[i][0])i++;
  return interpolate(frames[i-1][1],frames[i][1],(t-frames[i-1][0])/(frames[i][0]-frames[i-1][0]));

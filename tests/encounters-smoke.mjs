@@ -37,9 +37,9 @@ try{
     else{
      const move=[];if(dist>1.05||(!s.player.attack&&(dx*Math.sin(s.player.heading)+dz*Math.cos(s.player.heading))/Math.max(.01,dist)<.7))move.push(direction);if(Math.abs(dz)>.2)move.push(dz>0?'s':'w');await movement(move);
      if(dist<1.8&&s.player.stun===0){const crowd=live.filter(e=>e.down<=0&&Math.hypot(e.x-s.player.x,e.z-s.player.z)<2).length;
-      if(!s.player.attack&&crowd>1&&s.player.cooldowns.spin===0&&s.player.stamina>=32)await page.keyboard.press('l');
+      if(!s.player.attack&&crowd>1&&s.player.cooldowns.spray===0&&s.player.stamina>=32)await page.keyboard.press('l');
       else if(!s.player.attack&&target.type==='bruiser'&&s.player.cooldowns.kick===0&&s.player.stamina>=14)await page.keyboard.press('k');
-      else if(!s.player.attack&&target.type==='bruiser'&&s.player.cooldowns.spin===0&&s.player.stamina>=32)await page.keyboard.press('l');
+      else if(!s.player.attack&&target.type==='bruiser'&&s.player.cooldowns.spray===0&&s.player.stamina>=32)await page.keyboard.press('l');
       else if(dist<1.35&&(!s.player.attack||s.player.attack==='jab'))await page.keyboard.press('j');
      }
     }

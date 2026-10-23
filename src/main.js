@@ -9,6 +9,7 @@ import {GameCamera} from './camera.js';
 import {enemyTypes,staminaCosts,spendStamina,recoverStamina,enemyConnects} from './combat.js';
 import {directionYaw,turnToward} from './movement.js';
 import {chargeSuper,selectFinisherTarget,finisherPose,finisherPlacement} from './finisher.js';
+import {SprayEffect} from './spray.js';
 import {Street} from './world.js';
 import {readRecord,saveRecord} from './records.js';
 import {laneBounds,offscreenSpawn} from './spawning.js';
@@ -27,9 +28,10 @@ scene.add(new THREE.HemisphereLight('#e9e6d3', '#536850', 2.4));
 const sun = new THREE.DirectionalLight('#ffdfaa', 3); sun.position.set(-4,12,8); sun.castShadow=true;
 sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;scene.add(sun,sun.target);
 const mat=color=>new THREE.MeshStandardMaterial({color,roughness:.92});
+const sprayEffect=new SprayEffect(scene);
 const street=new Street(scene);street.update(-8);
 const state={health:100,bottles:0,score:0,defeated:0,bruisersDefeated:0,over:false};
-const player={x:-8,z:.5,facing:1,heading:Math.PI/2,attack:null,attackTime:0,cooldowns:{jab:0,kick:0,spin:0},queuedAttack:null,stun:0,combo:0,lastJab:-10,invulnerable:0,stamina:100,regenDelay:0,dodge:0,dodgeCooldown:0,dashX:1,dashZ:0};
+const player={x:-8,z:.5,facing:1,heading:Math.PI/2,attack:null,attackTime:0,cooldowns:{jab:0,kick:0,spray:0},queuedAttack:null,stun:0,combo:0,lastJab:-10,invulnerable:0,stamina:100,regenDelay:0,dodge:0,dodgeCooldown:0,dashX:1,dashZ:0};
 const encounters=new Encounters();let spawnEncounterEnemy=null;
 let cinematic=null,superPower=0,returnWall=-8;
 let paused=false,best=readRecord();const pendingSpawns=[],spawnAudit=[];
@@ -47,7 +49,7 @@ function attack(kind){
  if(player.attack){if(player.attackTime/attacks[player.attack].duration>.45)player.queuedAttack={kind,until:time+attacks[player.attack].duration-player.attackTime+.12};return;}
  if(player.cooldowns[kind]>0)return;
  if(!spendStamina(player,kind)){toast('Передохни или продолжай кулаками — они не тратят силы');return;}
- player.attack=kind;player.attackTime=0;player.cooldowns[kind]=attacks[kind].cooldown;player.hit=false;
+ player.attack=kind;player.attackTime=0;player.cooldowns[kind]=attacks[kind].cooldown;player.hit=false;player.sprayHits=new Set();
  if(kind==='jab'){player.combo=time-player.lastJab<1.1?(player.combo%3)+1:1;player.lastJab=time;}else player.combo=0;
  tone(kind==='kick'?180:300);
 }
@@ -72,7 +74,7 @@ for(const b of document.querySelectorAll('[data-move]')){
  for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(k));
 }
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spin');if(e.code==='Space'){e.preventDefault();dodge();}}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
@@ -104,7 +106,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
   if(player.dodge>0){dx=player.dashX;dz=player.dashZ;}const speed=player.dodge>0?8:player.stun>0?.6:player.attack?.35:3.2;let [left,right]=encounters.bounds;if(encounters.active){const visible=laneBounds(camera,player.z);left=Math.max(left,visible[0]+.9);right=Math.min(right,visible[1]-.9);if(left>right){left=encounters.bounds[0];right=encounters.bounds[1];}}left=Math.max(left,returnWall);player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,left,right);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(length&&!player.attack){player.heading=turnToward(player.heading,directionYaw(dx,dz),dt);if(dx)player.facing=Math.sign(dx);}
   let progress=0;
   if(player.attack){const spec=attacks[player.attack];player.attackTime+=dt;progress=player.attackTime/spec.duration;
-   if(progress>=spec.hitAt&&!player.hit){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&canHit(player,enemy,player.attack)){superPower=chargeSuper(superPower,12);enemy.health-=spec.damage+(player.combo===3?12:0);const finisher=player.attack==='spin'||player.combo===3;enemy.knockback=player.facing*(finisher?5:player.attack==='kick'?4:1.4);enemy.flash=.22;impact(enemy.x,enemy.z);if(enemy.type!=='bruiser'||player.attack!=='jab'){enemy.windup=0;enemy.strike=0;enemy.cooldown=.4;enemy.stun=player.attack==='jab'?.22:.4;if(finisher){enemy.down=1.25;enemy.stun=0;}}hits++;if(enemy.health<=0){awardDefeat(enemy);superPower=chargeSuper(superPower,18);toast('Противник побеждён');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
+   if(progress>=spec.hitAt&&(player.attack==='spray'?progress<=spec.activeUntil:!player.hit)){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&!(player.attack==='spray'&&player.sprayHits.has(enemy))&&canHit(player,enemy,player.attack)){if(player.attack==='spray')player.sprayHits.add(enemy);superPower=chargeSuper(superPower,12);enemy.health-=spec.damage+(player.combo===3?12:0);const finisher=player.combo===3;enemy.knockback=player.facing*(finisher?5:player.attack==='kick'?4:1.4);enemy.flash=.22;impact(enemy.x,enemy.z);if(enemy.type!=='bruiser'||player.attack!=='jab'){enemy.windup=0;enemy.strike=0;enemy.cooldown=.4;enemy.stun=player.attack==='jab'?.22:player.attack==='spray'?.7:.4;if(finisher){enemy.down=1.25;enemy.stun=0;}}hits++;if(enemy.health<=0){awardDefeat(enemy);superPower=chargeSuper(superPower,18);toast('Противник побеждён');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
    if(progress>=1){player.attack=null;if(player.queuedAttack){const queued=player.queuedAttack;player.queuedAttack=null;if(queued.until>=time)attack(queued.kind);}}
   }
   player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.heading+sampleMotion(time,length,player.attack,progress,player.combo).spin;pose(player,time,length,player.attack,progress);
@@ -153,12 +155,13 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
  $('super').disabled=superPower<100||!!cinematic||!!player.attack||player.stun>0||player.dodge>0||state.over;
  $('super').classList.toggle('ready',superPower>=100);
  if(time>toastUntil)$('toast').textContent='';
+ sprayEffect.update(player,ready&&!state.over&&!cinematic&&player.attack==='spray'&&player.attackTime/attacks.spray.duration>=.2&&player.attackTime/attacks.spray.duration<=.8,time);
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:rawDt,width:innerWidth,height:innerHeight});
  sun.position.x=targetX-4;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<650?53:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
