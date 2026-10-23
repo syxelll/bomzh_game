@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { attacks, canHit, sellBottles } from './game.js';
 import './style.css';
+import { pose, prepareAnimator, sampleMotion } from './animation.js';
 
 const $ = id => document.getElementById(id);
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#94aaa3'); scene.fog = new THREE.Fog('#94aaa3', 26, 65);
@@ -63,23 +64,7 @@ for(const b of document.querySelectorAll('[data-move]')){
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
 window.addEventListener('keydown',e=>{if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spin');if(k==='e')sell();}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
-function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});return{root,visual,bones};}
-function pose(actor,walk,attackKind,progress){
- actor.root.updateMatrixWorld(true);
- if(!actor.bind){
-  const inverse=actor.visual.matrixWorld.clone().invert();
-  actor.bind=actor.bones.map(({bone})=>({bone,matrix:new THREE.Matrix4().multiplyMatrices(inverse,bone.matrixWorld),side:bone.name.endsWith('.l')?1:-1,group:/arm|shoulder|hand|thumb|index|middle|ring|pinky|pinkie/i.test(bone.name)?'arm':/thigh|leg|foot|toe/i.test(bone.name)?'leg':null}));
-  actor.pivots={};for(const side of [1,-1])for(const group of ['arm','leg']){const suffix=side===1?'.l':'.r',target=actor.bind.find(b=>b.bone.name===(group==='arm'?'arm':'thigh')+suffix);actor.pivots[group+side]=target?new THREE.Vector3().setFromMatrixPosition(target.matrix):new THREE.Vector3(0,group==='arm'?1.4:.9,0);}
- }
- const transforms={};for(const side of [1,-1])for(const group of ['arm','leg']){
-  let angle=walk?Math.sin(time*9+(side===1?0:Math.PI))*(group==='arm'?.22:.28):0;
-  if(attackKind&&group==='arm')angle+=Math.sin(progress*Math.PI)*(attackKind==='jab'?(side===1?1.1:.3):.8);
-  if(attackKind==='kick'&&group==='leg'&&side===1)angle-=Math.sin(progress*Math.PI)*1.15;
-  const p=actor.pivots[group+side];transforms[group+side]=new THREE.Matrix4().makeTranslation(p.x,p.y,p.z).multiply(new THREE.Matrix4().makeRotationX(angle)).multiply(new THREE.Matrix4().makeTranslation(-p.x,-p.y,-p.z));
- }
- const desired=new THREE.Matrix4(),local=new THREE.Matrix4();
- for(const b of actor.bind){desired.copy(actor.visual.matrixWorld);if(b.group)desired.multiply(transforms[b.group+b.side]);desired.multiply(b.matrix);local.copy(b.bone.parent.matrixWorld).invert().multiply(desired);local.decompose(b.bone.position,b.bone.quaternion,b.bone.scale);b.bone.updateWorldMatrix(false,false);}
-}
+function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
 try{
  const [hero,enemy]=await Promise.all([loader.loadAsync('/models/hobo.glb'),loader.loadAsync('/models/enemy.glb')]);
@@ -91,27 +76,31 @@ try{
  }
  ready=true;initTelegram();$('loading').style.display='none';toast('Первый двор. Собери стеклотару и не дай себя обидеть.');
 }catch(error){console.error(error);$('load-status').textContent='Не удалось загрузить модели. Проверь соединение и обнови страницу.';}
+let hitStop=0;
+const impacts=[];
+function impact(x,z){const mesh=new THREE.Mesh(new THREE.RingGeometry(.1,.22,12),new THREE.MeshBasicMaterial({color:0xffe29a,transparent:true,depthWrite:false,side:THREE.DoubleSide}));mesh.position.set(x,1.1,z);mesh.quaternion.copy(camera.quaternion);scene.add(mesh);impacts.push({mesh,age:0});hitStop=.055;}
 const clock=new THREE.Clock();
-function frame(){frames++;requestAnimationFrame(frame);const dt=Math.min(clock.getDelta(),.05);time+=dt;
+function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(clock.getDelta(),.05);const dt=hitStop>0?0:rawDt;hitStop=Math.max(0,hitStop-rawDt);time+=dt;for(let i=impacts.length-1;i>=0;i--){const e=impacts[i];e.age+=rawDt;e.mesh.scale.setScalar(1+e.age*6);e.mesh.material.opacity=1-e.age/.22;if(e.age>=.22){scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();impacts.splice(i,1);}}
  if(ready&&!state.over){
   for(const k of Object.keys(attacks))player.cooldowns[k]=Math.max(0,player.cooldowns[k]-dt);
-  player.invulnerable=Math.max(0,player.invulnerable-dt);
+  player.invulnerable=Math.max(0,player.invulnerable-dt);player.hurt=Math.max(0,(player.hurt??0)-dt);
   let dx=Number(keys.has('right'))-Number(keys.has('left')),dz=Number(keys.has('down'))-Number(keys.has('up'));const length=Math.hypot(dx,dz);if(length){dx/=length;dz/=length;}
-  const speed=player.attack?1:3.2;player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,-11,33);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(dx&&!player.attack)player.facing=Math.sign(dx);
+  const speed=player.attack?.15:3.2;player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,-11,33);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(dx&&!player.attack)player.facing=Math.sign(dx);
   let progress=0;
   if(player.attack){const spec=attacks[player.attack];player.attackTime+=dt;progress=player.attackTime/spec.duration;
-   if(progress>.35&&!player.hit){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&canHit(player,enemy,player.attack)){enemy.health-=spec.damage+(player.combo===3?12:0);enemy.x=THREE.MathUtils.clamp(enemy.x+player.facing*.45,-10,32);enemy.flash=.18;enemy.windup=0;enemy.cooldown=.8;hits++;if(enemy.health<=0){state.coins+=5;toast('Противник побеждён · +5 монет');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
+   if(progress>=spec.hitAt&&!player.hit){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&canHit(player,enemy,player.attack)){enemy.health-=spec.damage+(player.combo===3?12:0);enemy.x=THREE.MathUtils.clamp(enemy.x+player.facing*.45,-10,32);enemy.flash=.22;impact(enemy.x,enemy.z);enemy.windup=0;enemy.strike=0;enemy.cooldown=.8;hits++;if(enemy.health<=0){state.coins+=5;toast('Противник побеждён · +5 монет');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
    if(progress>=1)player.attack=null;
   }
-  player.root.position.set(player.x,Math.sin(time*11)*(length?.025:0),player.z);player.root.rotation.y=player.facing*Math.PI/2+(player.attack==='spin'?progress*Math.PI*2:0);player.visual.rotation.z=player.attack==='jab'?-Math.sin(progress*Math.PI)*.09:0;pose(player,length,player.attack,progress);
+  player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.facing*Math.PI/2+sampleMotion(time,length,player.attack,progress,player.combo).spin;pose(player,time,length,player.attack,progress);
   for(const enemy of enemies){
    if(enemy.health<=0){enemy.root.rotation.z=THREE.MathUtils.damp(enemy.root.rotation.z,-Math.PI/2,5,dt);enemy.root.position.y=THREE.MathUtils.damp(enemy.root.position.y,.2,5,dt);enemy.bar.visible=false;continue;}
    const distance=Math.hypot(player.x-enemy.x,player.z-enemy.z);enemy.cooldown-=dt;enemy.flash=Math.max(0,enemy.flash-dt);let moving=false;
-   if(enemy.windup>0){enemy.windup-=dt;if(enemy.windup<=0){if(distance<1.65&&player.invulnerable<=0){state.health=Math.max(0,state.health-10);player.invulnerable=.7;toast('Получен удар · −10 здоровья');tone(90);updateHUD();if(!state.health)finish(false);}enemy.cooldown=1.4;}}
+   if(enemy.strike>0){const before=enemy.strike;enemy.strike=Math.max(0,enemy.strike-dt);if(before>.225&&enemy.strike<=.225&&distance<1.65&&player.invulnerable<=0){state.health=Math.max(0,state.health-10);player.invulnerable=.7;player.hurt=.22;impact(player.x,player.z);toast('Получен удар · −10 здоровья');tone(90);updateHUD();if(!state.health)finish(false);}}
+   else if(enemy.windup>0){enemy.windup-=dt;if(enemy.windup<=0){enemy.strike=.3;enemy.cooldown=1.4;}}
    else if(distance<6&&distance>1.15){const speed=1.2;enemy.x+=(player.x-enemy.x)/distance*dt*speed;enemy.z+=(player.z-enemy.z)/distance*dt*speed;moving=true;}
    else if(distance<=1.4&&enemy.cooldown<=0){enemy.windup=.65;}
-   enemy.root.position.set(enemy.x,0,enemy.z);enemy.root.rotation.y=(player.x>enemy.x?1:-1)*Math.PI/2;enemy.visual.rotation.z=enemy.windup>0?-.15:0;
-   enemy.bar.scale.x=Math.max(0,enemy.health/70);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':'#d68664');pose(enemy,moving,enemy.windup?'jab':null,enemy.windup?1-enemy.windup/.65:0);
+   enemy.root.position.set(enemy.x,0,enemy.z);enemy.root.rotation.y=(player.x>enemy.x?1:-1)*Math.PI/2;
+   enemy.bar.scale.x=Math.max(0,enemy.health/70);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':'#d68664');pose(enemy,time,moving,(enemy.windup>0||enemy.strike>0)?'jab':null,enemy.strike>0?.25+.75*(1-enemy.strike/.3):enemy.windup>0?.25*(1-enemy.windup/.65):0);
   }
   for(const bottle of bottles){if(bottle.taken)continue;bottle.mesh.rotation.y=time; if(Math.hypot(bottle.x-player.x,bottle.z-player.z)<.65){bottle.taken=true;bottle.mesh.visible=false;state.bottles++;tone(650);toast('+1 бутылка');updateHUD();}}
   const near=Math.hypot(player.x-30,player.z+.3)<3;$('exchange').style.display=near?'flex':'none';
@@ -120,12 +109,12 @@ function frame(){frames++;requestAnimationFrame(frame);const dt=Math.min(clock.g
   for(const b of document.querySelectorAll('[data-attack]')){const k=b.dataset.attack;b.disabled=player.cooldowns[k]>0||!!player.attack;}
  }
  if(time>toastUntil)$('toast').textContent='';
- const targetX=ready?player.x:-8;camera.position.lerp(new THREE.Vector3(targetX+1,7.4,11.5),1-Math.exp(-5*dt));camera.lookAt(targetX+1,.9,0);
+ const targetX=ready?player.x:-8;camera.position.lerp(new THREE.Vector3(targetX+.7,6,9),1-Math.exp(-5*dt));camera.lookAt(targetX+.7,.95,0);
  sun.position.x=targetX-4;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
 }
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<h?55:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7,7.4,11.5);frame();
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<h?55:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,player:{x:player.x,z:player.z},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health})),remainingBottles:bottles.filter(b=>!b.taken).length});
+window.gameDebug=()=>({ready,frames,...state,player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health})),remainingBottles:bottles.filter(b=>!b.taken).length});
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
 window.addEventListener('telegram-ready',()=>{if(ready)initTelegram();});
