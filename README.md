@@ -79,8 +79,10 @@ node tests/animation-review.mjs
 
 ### Тест с телефона
 
-[Открыть опубликованную сборку через HTMLPreview](https://htmlpreview.github.io/?https://github.com/syxelll/bomzh_game/blob/gh-pages/index.html).
+[Открыть игру](https://syxelll.github.io/bomzh_game/).
 
-Готовый автономный HTML хранится в ветке `gh-pages` как `index.html`. После обновлений нужно пересобрать `npm run build`, `node scripts/standalone.mjs` и обновить этот файл в `gh-pages`. Сам GitHub Pages пока не включён: API подключения возвращает 403 `Resource not accessible by integration`. Для постоянного адреса `https://syxelll.github.io/bomzh_game/` владелец может выбрать Settings → Pages → Deploy from a branch → `gh-pages` → `/ (root)` → Save. Все файлы для этого уже опубликованы.
+GitHub Pages публикует ветку `gh-pages`. Страница загружает код и модели отдельными файлами, поэтому индикатор загрузки появляется до загрузки моделей. HTMLPreview больше не нужен.
+
+Для обновления: `npm run build`, затем `node scripts/prepare-pages.mjs PATH_TO_GH_PAGES_CHECKOUT` и commit/push в `gh-pages`. Скрипт подготавливает относительные пути для проекта `/bomzh_game/`. Автономный файл для скачивания по-прежнему создаётся отдельно: `node scripts/standalone.mjs`.
 
 Проверка струи с клавиатуры и мобильной кнопки: `node tests/spray-smoke.mjs`.
