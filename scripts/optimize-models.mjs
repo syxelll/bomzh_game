@@ -1,0 +1,12 @@
+import {NodeIO} from '@gltf-transform/core';
+import {ALL_EXTENSIONS} from '@gltf-transform/extensions';
+import {dedup,prune,textureCompress} from '@gltf-transform/functions';
+import sharp from 'sharp';
+import {stat} from 'node:fs/promises';
+const io=new NodeIO().registerExtensions(ALL_EXTENSIONS);
+for(const name of ['hobo','enemy']){
+ const source=`/workspace/model-exports/mobile/${name}.glb`,target=`public/models/${name}.glb`;
+ const doc=await io.read(source);
+ await doc.transform(dedup(),prune(),textureCompress({encoder:sharp,targetFormat:'webp',resize:[512,512],lossless:true}));
+ await io.write(target,doc);console.log(name,(await stat(source)).size,'→',(await stat(target)).size,'bytes');
+}

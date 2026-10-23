@@ -1,0 +1,3 @@
+import bpy, os, json
+meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+print('MODEL_REPORT',json.dumps({'file':bpy.data.filepath,'version':bpy.app.version_string,'meshes':len(meshes),'vertices':sum(len(o.data.vertices) for o in meshes),'armatures':len([o for o in bpy.context.scene.objects if o.type=='ARMATURE']),'materials':len(bpy.data.materials),'images':len(bpy.data.images),'missing_images':[i.name for i in bpy.data.images if i.source=='FILE' and not i.packed_file and not os.path.isfile(bpy.path.abspath(i.filepath))],'meshes_without_uv':[o.name for o in meshes if not o.data.uv_layers]},ensure_ascii=False))
