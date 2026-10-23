@@ -62,6 +62,7 @@ export function prepareAnimator(actor){
 }
 export function pose(actor,time,walk,kind,progress){
  const p=sampleMotion(time,walk,kind,progress,actor.combo??1);
+ if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
  actor.visual.position.y=actor.baseVisualY+p.drop;
  actor.root.updateMatrixWorld(true);
  const hurt=Math.max(actor.flash??0,actor.hurt??0);
