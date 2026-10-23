@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { attacks, canHit, sellBottles } from './game.js';
 import './style.css';
+import {quests,questStatus,acceptQuest,claimQuest} from './quests.js';
 import { pose, prepareAnimator, sampleMotion } from './animation.js';
 
 const $ = id => document.getElementById(id);
@@ -42,18 +43,18 @@ for(let i=0;i<18;i++){
  const ring=new THREE.Mesh(new THREE.TorusGeometry(.17,.015,5,20),materials.gold);ring.rotation.x=-Math.PI/2;ring.position.y=.04;group.add(ring);
  group.position.set(-6+i*1.9,0,Math.sin(i*2.1)*1.5);scene.add(group);bottles.push({mesh:group,x:group.position.x,z:group.position.z,taken:false});
 }
-const state={health:100,bottles:0,coins:0,sold:0,over:false};
+const state={health:100,bottles:0,coins:0,sold:0,collected:0,defeated:0,over:false};
 const player={x:-8,z:.5,facing:1,attack:null,attackTime:0,cooldowns:{jab:0,kick:0,spin:0},combo:0,lastJab:-10,invulnerable:0};
 const enemies=[];const keys=new Set();let frames=0;let time=0,toastUntil=0,audio=null,sound=false,ready=false;
 function toast(text){$('toast').textContent=text;toastUntil=time+2;}
 function tone(frequency=400){if(!sound)return;audio??=new AudioContext();audio.resume();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(frequency,audio.currentTime);gain.gain.setValueAtTime(.05,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.12);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+.13);}
 $('sound').onclick=()=>{sound=!sound;$('sound').textContent='Звук: '+(sound?'вкл.':'выкл.');tone();};
 function updateHUD(){for(const k of ['health','bottles','coins'])$(k).textContent=Math.ceil(state[k]);}
-function finish(win){state.over=true;$('ending').hidden=false;$('ending-title').textContent=win?'Двор пройден!':'Сегодня не твой день';$('ending-text').textContent=win?`Все противники побеждены. Сдано бутылок: ${state.sold}. Монет: ${state.coins}.`:'Бутылки подождут. Попробуй чередовать быстрые удары, пинки и отходы.';}
+function finish(win){state.over=true;$('ending').hidden=false;$('ending-title').textContent=win?'Двор пройден!':'Сегодня не твой день';$('ending-text').textContent=win?`Все три поручения выполнены. Двор стал спокойнее. Заработано монет: ${state.coins}.`:'Бутылки подождут. Попробуй чередовать быстрые удары, пинки и отходы.';}
 $('restart').onclick=()=>location.reload();
-function sell(){if(!ready||state.over||Math.hypot(player.x-30,player.z+.3)>3)return;const n=sellBottles(state);toast(n?`Сдано ${n} бутылок · +${n*3} монет`:'Сначала собери бутылки');if(n)tone(750);updateHUD();}
+function sell(){if(!ready||state.over||Math.hypot(player.x-30,player.z+.3)>3)return;const n=sellBottles(state);toast(n?`Сдано ${n} бутылок · +${n*3} монет`:'Сначала собери бутылки');if(n)tone(750);updateHUD();renderJournal();}
 $('sell').onclick=sell;
-function attack(kind){if(!ready||state.over||player.attack||player.cooldowns[kind]>0)return;player.attack=kind;player.attackTime=0;player.cooldowns[kind]=attacks[kind].cooldown;player.hit=false;
+function attack(kind){if(!ready||state.over||dialogueNpc||player.attack||player.cooldowns[kind]>0)return;player.attack=kind;player.attackTime=0;player.cooldowns[kind]=attacks[kind].cooldown;player.hit=false;
  if(kind==='jab'){player.combo=time-player.lastJab<1.3?(player.combo%3)+1:1;player.lastJab=time;}else player.combo=0;
  tone(kind==='kick'?180:300);}
 for(const b of document.querySelectorAll('[data-attack]'))b.addEventListener('pointerdown',e=>{e.preventDefault();attack(b.dataset.attack);});
@@ -62,9 +63,43 @@ for(const b of document.querySelectorAll('[data-move]')){
  for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(k));
 }
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
-window.addEventListener('keydown',e=>{if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spin');if(k==='e')sell();}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDialogue();return;}if(e.key.toLowerCase()==='q'&&!e.repeat){toggleJournal();return;}if(dialogueNpc)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spin');if(k==='e')interact();}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y};prepareAnimator(actor);return actor;}
+const questLog={};let dialogueNpc=null,returnFocus=null;
+const npcs=[{id:'semyon',name:'Семён',role:'СОСЕД · ПЕРВЫЙ ЗАРАБОТОК',x:-8.8,z:-.8,color:'#a58b67'},{id:'grisha',name:'Гриша',role:'МЕХАНИК · СПОКОЙНЫЙ ДВОР',x:14,z:-1.3,color:'#577c8b'},{id:'varya',name:'Варя',role:'ПРИЁМЩИЦА · СТЕКЛО В ДЕЛО',x:30,z:-.9,color:'#956f77'}];
+function npcLabel(npc){const canvas=document.createElement('canvas');canvas.width=256;canvas.height=96;const ctx=canvas.getContext('2d');ctx.fillStyle='#19382de8';ctx.fillRect(0,0,256,96);ctx.fillStyle='#f5d58f';ctx.font='bold 30px Arial';ctx.textAlign='center';ctx.fillText(npc.name,128,60);const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false}));sprite.scale.set(1.6,.6,1);sprite.position.set(npc.x,2.25,npc.z);scene.add(sprite);}
+for(const npc of npcs){
+ const group=new THREE.Group();group.position.set(npc.x,0,npc.z);const clothes=mat(npc.color),skin=mat('#cfac8b');
+ function part(geometry,material,x,y,z){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.castShadow=true;group.add(mesh);return mesh;}
+ part(new THREE.CylinderGeometry(.22,.27,.65,8),clothes,0,1.05,0);part(new THREE.SphereGeometry(.2,10,8),skin,0,1.62,0);
+ for(const side of [-1,1]){part(new THREE.CylinderGeometry(.075,.09,.62,6),materials.metal,side*.12,.4,0);part(new THREE.CylinderGeometry(.065,.07,.58,6),clothes,side*.3,1.03,0);part(new THREE.SphereGeometry(.075,8,6),skin,side*.3,.7,0);}
+ part(new THREE.CylinderGeometry(.23,.25,.14,8),clothes,0,1.8,0);part(new THREE.BoxGeometry(.04,.035,.025),materials.metal,-.07,1.65,.19);part(new THREE.BoxGeometry(.04,.035,.025),materials.metal,.07,1.65,.19);
+ const marker=part(new THREE.OctahedronGeometry(.13),materials.gold,0,2.65,0);npc.root=group;npc.marker=marker;scene.add(group);npcLabel(npc);
+}
+function nearestNpc(){return npcs.filter(n=>Math.hypot(player.x-n.x,player.z-n.z)<1.9).sort((a,b)=>Math.hypot(player.x-a.x,player.z-a.z)-Math.hypot(player.x-b.x,player.z-b.z))[0];}
+function renderJournal(){const list=$('quest-list');list.replaceChildren();for(const q of quests){const status=questStatus(q,questLog,state),entry=document.createElement('article');entry.className='quest-entry';const title=document.createElement('b');title.textContent=q.title;const text=document.createElement('p');text.textContent=q.description;const progress=document.createElement('small');progress.textContent=status==='completed'?'✓ Выполнено':status==='available'?`Поговори: ${npcs.find(n=>n.id===q.npc).name}`:`${Math.min(state[q.metric],q.target)} / ${q.target} · ${status==='ready'?'Вернись за наградой':'В работе'}`;entry.append(title,text,progress);list.append(entry);}}
+function toggleJournal(){$('journal').hidden=!$('journal').hidden;$('journal-toggle').setAttribute('aria-expanded',String(!$('journal').hidden));renderJournal();}
+function closeDialogue(){if(!dialogueNpc)return;dialogueNpc=null;$('dialogue').hidden=true;keys.clear();returnFocus?.focus();}
+function openDialogue(npc,thanks=false){
+ if(!dialogueNpc)returnFocus=document.activeElement;dialogueNpc=npc;keys.clear();$('dialogue').hidden=false;$('journal').hidden=true;$('journal-toggle').setAttribute('aria-expanded','false');$('dialogue-name').textContent=npc.name;$('dialogue-role').textContent=npc.role;
+ const q=quests.find(q=>q.npc===npc.id),status=questStatus(q,questLog,state);$('dialogue-text').textContent=thanks?q.thanks:status==='completed'?'Спасибо за помощь. Если есть бутылки — Варя всегда принимает стеклотару.':status==='ready'?'Вижу, дело сделано. Забирай заслуженную награду!':status==='active'?q.description+` Сейчас: ${Math.min(state[q.metric],q.target)} / ${q.target}.`:q.request;
+ const actions=$('dialogue-actions');actions.replaceChildren();function button(text,action){const b=document.createElement('button');b.textContent=text;b.onclick=action;actions.append(b);}
+ if(status==='available')button('Взять задание',()=>{acceptQuest(q.id,questLog);renderJournal();openDialogue(npc);});
+ if(status==='ready')button(`Получить награду · ${q.reward} монет`,()=>{if(claimQuest(q.id,questLog,state)){updateHUD();renderJournal();tone(850);openDialogue(npc,true);}});
+ if(npc.id==='varya'&&state.bottles>0)button(`Сдать ${state.bottles} бутылок · +${state.bottles*3} монет`,()=>{sell();openDialogue(npc);});
+ (actions.querySelector('button')??$('dialogue-close')).focus();
+}
+function interact(){if(!ready||state.over||dialogueNpc||player.attack)return;const npc=nearestNpc();if(npc)openDialogue(npc);else sell();}
+function updateInteractions(){
+ const nearby=nearestNpc();$('interact').hidden=!nearby||!!dialogueNpc;$('interact').textContent=nearby?`Поговорить: ${nearby.name} · E`:'';
+ for(const npc of npcs){const q=quests.find(q=>q.npc===npc.id),status=questStatus(q,questLog,state);npc.marker.visible=status!=='completed';npc.marker.rotation.y=time;npc.marker.position.y=2.65+Math.sin(time*2)*.08;npc.marker.material=status==='ready'?materials.gold:materials.stone;}
+ const active=quests.find(q=>questStatus(q,questLog,state)==='ready')??quests.find(q=>questStatus(q,questLog,state)==='active');
+ $('objective').textContent=active?`${active.title}: ${Math.min(state[active.metric],active.target)} / ${active.target}${questStatus(active,questLog,state)==='ready'?' · забери награду':''}`:'Поговори с жителями: Семён — начало, Гриша — середина, Варя — конец улицы';
+}
+$('interact').onclick=interact;$('dialogue-close').onclick=closeDialogue;$('journal-toggle').onclick=toggleJournal;
+$('dialogue').addEventListener('keydown',e=>{if(e.key!=='Tab')return;const buttons=[...$('dialogue').querySelectorAll('button')];const first=buttons[0],last=buttons.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}});
+renderJournal();
 const loader=new GLTFLoader();
 try{
  const [hero,enemy]=await Promise.all([loader.loadAsync('/models/hobo.glb'),loader.loadAsync('/models/enemy.glb')]);
@@ -74,13 +109,13 @@ try{
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.8,.07),new THREE.MeshBasicMaterial({color:'#d68664',side:THREE.DoubleSide}));bar.position.y=2.25;actor.root.add(bar);
   enemies.push({...actor,x,z:i%2?-1:1,health:70,windup:0,cooldown:1,bar,flash:0});
  }
- ready=true;initTelegram();$('loading').style.display='none';toast('Первый двор. Собери стеклотару и не дай себя обидеть.');
+ ready=true;initTelegram();$('loading').style.display='none';toast('Подойди к Семёну у начала улицы и нажми E.');
 }catch(error){console.error(error);$('load-status').textContent='Не удалось загрузить модели. Проверь соединение и обнови страницу.';}
 let hitStop=0;
 const impacts=[];
 function impact(x,z){const mesh=new THREE.Mesh(new THREE.RingGeometry(.1,.22,12),new THREE.MeshBasicMaterial({color:0xffe29a,transparent:true,depthWrite:false,side:THREE.DoubleSide}));mesh.position.set(x,1.1,z);mesh.quaternion.copy(camera.quaternion);scene.add(mesh);impacts.push({mesh,age:0});hitStop=.055;}
 const clock=new THREE.Clock();
-function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(clock.getDelta(),.05);const dt=hitStop>0?0:rawDt;hitStop=Math.max(0,hitStop-rawDt);time+=dt;for(let i=impacts.length-1;i>=0;i--){const e=impacts[i];e.age+=rawDt;e.mesh.scale.setScalar(1+e.age*6);e.mesh.material.opacity=1-e.age/.22;if(e.age>=.22){scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();impacts.splice(i,1);}}
+function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(clock.getDelta(),.05);const dt=hitStop>0||dialogueNpc?0:rawDt;hitStop=Math.max(0,hitStop-rawDt);time+=dt;for(let i=impacts.length-1;i>=0;i--){const e=impacts[i];e.age+=rawDt;e.mesh.scale.setScalar(1+e.age*6);e.mesh.material.opacity=1-e.age/.22;if(e.age>=.22){scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();impacts.splice(i,1);}}
  if(ready&&!state.over){
   for(const k of Object.keys(attacks))player.cooldowns[k]=Math.max(0,player.cooldowns[k]-dt);
   player.invulnerable=Math.max(0,player.invulnerable-dt);player.hurt=Math.max(0,(player.hurt??0)-dt);
@@ -88,7 +123,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
   const speed=player.attack?.15:3.2;player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,-11,33);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(dx&&!player.attack)player.facing=Math.sign(dx);
   let progress=0;
   if(player.attack){const spec=attacks[player.attack];player.attackTime+=dt;progress=player.attackTime/spec.duration;
-   if(progress>=spec.hitAt&&!player.hit){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&canHit(player,enemy,player.attack)){enemy.health-=spec.damage+(player.combo===3?12:0);enemy.x=THREE.MathUtils.clamp(enemy.x+player.facing*.45,-10,32);enemy.flash=.22;impact(enemy.x,enemy.z);enemy.windup=0;enemy.strike=0;enemy.cooldown=.8;hits++;if(enemy.health<=0){state.coins+=5;toast('Противник побеждён · +5 монет');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
+   if(progress>=spec.hitAt&&!player.hit){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&canHit(player,enemy,player.attack)){enemy.health-=spec.damage+(player.combo===3?12:0);enemy.x=THREE.MathUtils.clamp(enemy.x+player.facing*.45,-10,32);enemy.flash=.22;impact(enemy.x,enemy.z);enemy.windup=0;enemy.strike=0;enemy.cooldown=.8;hits++;if(enemy.health<=0){state.coins+=5;state.defeated++;renderJournal();toast('Противник побеждён · +5 монет');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
    if(progress>=1)player.attack=null;
   }
   player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.facing*Math.PI/2+sampleMotion(time,length,player.attack,progress,player.combo).spin;pose(player,time,length,player.attack,progress);
@@ -102,10 +137,10 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
    enemy.root.position.set(enemy.x,0,enemy.z);enemy.root.rotation.y=(player.x>enemy.x?1:-1)*Math.PI/2;
    enemy.bar.scale.x=Math.max(0,enemy.health/70);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':'#d68664');pose(enemy,time,moving,(enemy.windup>0||enemy.strike>0)?'jab':null,enemy.strike>0?.25+.75*(1-enemy.strike/.3):enemy.windup>0?.25*(1-enemy.windup/.65):0);
   }
-  for(const bottle of bottles){if(bottle.taken)continue;bottle.mesh.rotation.y=time; if(Math.hypot(bottle.x-player.x,bottle.z-player.z)<.65){bottle.taken=true;bottle.mesh.visible=false;state.bottles++;tone(650);toast('+1 бутылка');updateHUD();}}
+  for(const bottle of bottles){if(bottle.taken)continue;bottle.mesh.rotation.y=time; if(Math.hypot(bottle.x-player.x,bottle.z-player.z)<.65){bottle.taken=true;bottle.mesh.visible=false;state.bottles++;state.collected++;renderJournal();tone(650);toast('+1 бутылка');updateHUD();}}
   const near=Math.hypot(player.x-30,player.z+.3)<3;$('exchange').style.display=near?'flex':'none';
-  if(enemies.every(e=>e.health<=0)&&state.sold>=1&&state.bottles===0&&bottles.every(b=>b.taken))finish(true);
-  $('objective').textContent=enemies.every(e=>e.health<=0)?'Собери оставшиеся бутылки и сдай их в конце улицы':'Собирай бутылки · жёлтая полоска — враг готовит удар';
+  if(quests.every(q=>questStatus(q,questLog,state)==='completed')&&!dialogueNpc)finish(true);
+  updateInteractions();
   for(const b of document.querySelectorAll('[data-attack]')){const k=b.dataset.attack;b.disabled=player.cooldowns[k]>0||!!player.attack;}
  }
  if(time>toastUntil)$('toast').textContent='';
@@ -114,7 +149,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<h?55:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health})),remainingBottles:bottles.filter(b=>!b.taken).length});
+window.gameDebug=()=>({ready,frames,...state,player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health})),quests:quests.map(q=>({id:q.id,status:questStatus(q,questLog,state)})),dialogue:dialogueNpc?.id??null,remainingBottles:bottles.filter(b=>!b.taken).length});
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
 window.addEventListener('telegram-ready',()=>{if(ready)initTelegram();});

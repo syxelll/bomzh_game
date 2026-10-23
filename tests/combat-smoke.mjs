@@ -17,7 +17,7 @@ try{
  const fight=await page.evaluate(()=>window.gameDebug());assert.ok(fight.enemies[0].health<=0,'enemy defeated: '+JSON.stringify(fight));assert.ok(fight.coins>=5,'combat reward');assert.ok(fight.health>0,'survived');
  await page.keyboard.down('w');await page.waitForFunction(()=>window.gameDebug().player.z<=-1.95,null,{timeout:60000});await page.keyboard.up('w');
  await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().player.x>=29,null,{timeout:180000});await page.keyboard.up('d');
- const before=await page.evaluate(()=>window.gameDebug());assert.ok(before.bottles>0);await page.keyboard.press('e');
+ const before=await page.evaluate(()=>window.gameDebug());assert.ok(before.bottles>0);await page.keyboard.press('e');await page.getByRole('button',{name:/^Сдать .* бутылок/}).click();
  await page.waitForFunction(()=>window.gameDebug().bottles===0,null,{timeout:60000});const after=await page.evaluate(()=>window.gameDebug());
  assert.equal(after.coins,before.coins+before.bottles*3);assert.equal(after.sold,before.bottles);assert.deepEqual(errors,[]);
  console.log('Combat and exchange OK',JSON.stringify(after));

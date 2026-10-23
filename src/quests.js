@@ -1,0 +1,8 @@
+export const quests = [
+ {id:'bottles',npc:'semyon',title:'Первый заработок',target:3,metric:'collected',reward:12,description:'Найди 3 бутылки на улице и вернись к Семёну. Бутылки останутся у тебя — потом сдашь их за монеты.',request:'В этом дворе без мелочи никуда. Собери три бутылки, покажи мне — помогу с первым заработком.',thanks:'Вот, уже дело! Держи 12 монет. А бутылки отнеси Варе в конец улицы.'},
+ {id:'sale',npc:'varya',title:'Стекло в дело',target:5,metric:'sold',reward:20,description:'Сдай Варе 5 бутылок и забери премию. Курс приёма — 3 монеты за бутылку.',request:'Принимаю стеклотару по три монеты за штуку. Сдашь пять бутылок — получишь ещё двадцать сверху.',thanks:'Пять бутылок принято. Твоя премия — 20 монет. Заходи ещё!'},
+ {id:'street',npc:'grisha',title:'Спокойный двор',target:2,metric:'defeated',reward:25,heal:20,description:'Победи 2 противников и вернись к Грише. Награда: 25 монет и восстановление 20 здоровья.',request:'Эти типы распугали весь двор. Разберись с двумя, а я заплачу и помогу перевязать раны.',thanks:'Теперь можно спокойно работать. Держи 25 монет. И дай перевяжу — здоровье восстановлено на 20.'},
+];
+export function questStatus(q,log,state){const record=log[q.id];if(record?.claimed)return 'completed';if(!record?.accepted)return 'available';return (state[q.metric]??0)>=q.target?'ready':'active';}
+export function acceptQuest(id,log){if(!quests.some(q=>q.id===id)||log[id]?.accepted)return false;log[id]={accepted:true,claimed:false};return true;}
+export function claimQuest(id,log,state){const q=quests.find(q=>q.id===id);if(!q||questStatus(q,log,state)!=='ready')return false;log[id].claimed=true;state.coins+=q.reward;if(q.heal)state.health=Math.min(100,state.health+q.heal);return true;}
