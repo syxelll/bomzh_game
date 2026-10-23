@@ -15,3 +15,4 @@ test('exchange pays exactly once and retains prior coins',()=>{
  assert.equal(sellBottles(state),4);assert.deepEqual(state,{bottles:0,coins:17,sold:6});
  assert.equal(sellBottles(state),0);assert.equal(state.coins,17);
 });
+test('grounded enemies cannot be hit again until they recover',()=>{assert.equal(canHit({x:0,z:0,facing:1},{x:.5,z:0,down:.8},'jab'),false);assert.equal(canHit({x:0,z:0,facing:1},{x:.5,z:0,down:0},'jab'),true);});
