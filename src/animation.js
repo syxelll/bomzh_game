@@ -20,7 +20,9 @@ export function sampleMotion(time,walk,kind,progress=0,combo=1){
   p.drop=walk?-.025*Math.abs(Math.sin(time*9)):-.005*(1+Math.sin(time*2));return p;
  }
  const active=combo%2===0?'right':'left';let frames;
- if(kind==='jab'){
+ if(kind==='finisher'){
+  frames=[[0,key()],[.22,key({right:[-.15,-.7,.18,.3],left:[-.6,-1.3,-.18,.25],twist:-.3,drop:-.08})],[.37,key({right:[.15,-1.5,.2,.45],left:[-.8,-1.4,-.25,.3],twist:-.55,lean:.18,drop:-.16})],[1.3/2.8,key({right:[-1.8,-.15,.15,.12],left:[-.65,-1.2,-.2,.2],twist:.55,lean:-.12,drop:.06})],[.58,key({right:[-1.75,-.2,.15,.12],twist:.4,lean:-.1,drop:.04})],[.86,key()],[1,key()]];
+ }else if(kind==='jab'){
   frames=[[0,key()],[.25,key({[active]:[-.15,-1.9,0,.12],twist:-.25,drop:-.025})],[.43,key({[active]:[-1.65,-.08,-.1,.1],twist:.3,lean:.12})],[.58,key({[active]:[-1.55,-.12,-.1,.1],twist:.23,lean:.1})],[1,key()]];
  }else if(kind==='kick'){
   frames=[[0,key()],[.28,key({left:[-.9,-1.3,-1,.95],right:[-.2,-1.4,.12,.08],lean:-.12,drop:-.04})],[.48,key({left:[-.2,-1.25,-1.6,.05],right:[-.85,-1.2,.1,.08],lean:-.25})],[.62,key({left:[-.2,-1.25,-1.5,.08],lean:-.2})],[.8,key({left:[-.6,-1.3,-.85,.85],lean:-.1})],[1,key()]];
@@ -41,7 +43,7 @@ export function prepareAnimator(actor){
  actor.bind=actor.bones.map(({bone})=>{const name=bone.userData.name??bone.name;return {bone,name,matrix:new THREE.Matrix4().multiplyMatrices(inverse,bone.matrixWorld),side:name.endsWith('.l')?'left':'right',group:arm.test(name)?(lowerArm.test(name)?'forearm':'arm'):leg.test(name)?(lowerLeg.test(name)?'shin':'leg'):'body'};});
  const point=(name,fallback)=>{const b=actor.bind.find(b=>b.name===name);return b?new THREE.Vector3().setFromMatrixPosition(b.matrix):fallback;};
  actor.pivots={hips:point('root.x',new THREE.Vector3(0,.5,0))};
- for(const [side,suffix] of [['left','.l'],['right','.r']])actor.pivots[side]={shoulder:point('arm'+suffix,new THREE.Vector3()),elbow:point('forearm'+suffix,new THREE.Vector3()),hip:point('thigh'+suffix,new THREE.Vector3()),knee:point('leg'+suffix,new THREE.Vector3())};
+ for(const [side,suffix] of [['left','.l'],['right','.r']])actor.pivots[side]={shoulder:point('arm'+suffix,new THREE.Vector3()),elbow:point('forearm'+suffix,new THREE.Vector3()),hip:point('thigh'+suffix,new THREE.Vector3()),knee:point('leg'+suffix,new THREE.Vector3()),wrist:point('hand'+suffix,new THREE.Vector3())};
  // Curl fingers in model space; preserve every joint's original scale and bind matrix.
  for(const b of actor.bind){
   const finger=b.name.match(/(thumb|index|middle|ring|pinky)([123])(?:_rot)?\.([lr])/);
@@ -72,8 +74,16 @@ export function pose(actor,time,walk,kind,progress){
  const transforms={body};
  for(const side of ['left','right']){
   const angles=p[side],v=actor.pivots[side];
-  transforms['arm'+side]=body.clone().multiply(pivotTransform(v.shoulder,angles[0]));
-  transforms['forearm'+side]=transforms['arm'+side].clone().multiply(pivotTransform(v.elbow,angles[1]));
+  // Bind arms point sideways: rotating around global X twists them instead of bending.
+  // Aim the actual shoulder->elbow and elbow->wrist axes at anatomical targets.
+  const lateral=side==='left'?1:-1;
+  const upper=new THREE.Vector3(lateral*.16,-Math.cos(angles[0]),-Math.sin(angles[0])).normalize();
+  const lower=new THREE.Vector3(lateral*.12,-Math.cos(angles[0]+angles[1]),-Math.sin(angles[0]+angles[1])).normalize();
+  const q=new THREE.Quaternion().setFromUnitVectors(v.elbow.clone().sub(v.shoulder).normalize(),upper);
+  const elbowQ=new THREE.Quaternion().setFromUnitVectors(v.wrist.clone().sub(v.elbow).normalize(),lower.applyQuaternion(q.clone().invert()));
+  const around=(point,rotation)=>new THREE.Matrix4().makeTranslation(point.x,point.y,point.z).multiply(new THREE.Matrix4().makeRotationFromQuaternion(rotation)).multiply(new THREE.Matrix4().makeTranslation(-point.x,-point.y,-point.z));
+  transforms['arm'+side]=body.clone().multiply(around(v.shoulder,q));
+  transforms['forearm'+side]=transforms['arm'+side].clone().multiply(around(v.elbow,elbowQ));
   transforms['leg'+side]=pivotTransform(v.hip,angles[2]);
   transforms['shin'+side]=transforms['leg'+side].clone().multiply(pivotTransform(v.knee,angles[3]));
  }

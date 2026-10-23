@@ -6,7 +6,7 @@ export const attacks = {
 export function canHit(player, enemy, kind) {
   if(enemy.down>0)return false;
   const dx = enemy.x - player.x, dz = enemy.z - player.z;
-  return Math.hypot(dx, dz) < attacks[kind].range && (kind === 'spin' || dx * player.facing > -.15);
+  return Math.hypot(dx, dz) < attacks[kind].range && (kind === 'spin' || (player.heading===undefined?dx*player.facing:dx*Math.sin(player.heading)+dz*Math.cos(player.heading)) > -.15);
 }
 export function sellBottles(state) {
   const count = state.bottles;
