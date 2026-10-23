@@ -1,5 +1,5 @@
 import {chromium} from '@playwright/test';import assert from 'node:assert/strict';
-const targetAreas=process.argv.includes('--first-area')?1:3;
+const targetAreas=process.argv.includes('--first-area')?1:4;
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const page=await browser.newPage({viewport:{width:1000,height:700}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -9,7 +9,7 @@ try{
  for(let step=0;step<1600;step++){
   const s=await page.evaluate(()=>window.gameDebug());assert.equal(s.over,false,'player survived: '+JSON.stringify(s));
   assert.ok(s.player.x>=s.encounter.bounds[0]-.01&&s.player.x<=s.encounter.bounds[1]+.01,'arena boundary');
-  if(s.encounter.cleared.length>completed){completed=s.encounter.cleared.length;console.log('Cleared',s.encounter.cleared,'health',s.health);await page.screenshot({path:`/workspace/encounter-clear-${completed}.png`});if(completed===targetAreas)break;}
+  if(s.encounter.index>completed){completed=s.encounter.index;console.log('Cleared',completed,'health',s.health);await page.screenshot({path:`/workspace/encounter-clear-${completed}.png`});if(completed===targetAreas)break;}
   const wave=`${s.encounter.index}:${s.encounter.wave}:${s.encounter.phase}`;if(wave!==lastWave){console.log('Phase',wave);lastWave=wave;}
   if(s.player.combo>=2)comboSeen=true;
   const live=s.enemies.filter(e=>e.health>0);
@@ -35,6 +35,6 @@ try{
   }
   await page.waitForFunction(frame=>window.gameDebug().frames>=frame+2,s.frames,{timeout:60000});
  }
- await movement([]);const result=await page.evaluate(()=>window.gameDebug());assert.equal(completed,targetAreas,'all selected areas clear: '+JSON.stringify(result));assert.ok(fall,'knockdown rendered');assert.ok(comboSeen,'combo followed through');if(targetAreas===3)assert.equal(result.bruisersDefeated,1);assert.deepEqual(errors,[]);
- console.log('All encounter waves, combos, knockdowns and exit gates OK',JSON.stringify(result));
+ await movement([]);const result=await page.evaluate(()=>window.gameDebug());assert.equal(completed,targetAreas,'all selected areas clear: '+JSON.stringify(result));assert.ok(fall,'knockdown rendered');assert.ok(comboSeen,'combo followed through');if(targetAreas>=3)assert.ok(result.bruisersDefeated>=1);assert.equal(result.worldChunks,5);assert.ok(result.enemies.length<=8);assert.ok(result.spawnAudit.length>0);for(const audit of result.spawnAudit)assert.ok(audit.side<0?audit.projected[1]<-1.15:audit.projected[0]>1.15,'offscreen creation');assert.equal(result.best.levels,targetAreas);assert.deepEqual(result.authoredActions.sort(),['idle','jab_01','kick']);assert.deepEqual(errors,[]);
+ console.log('Endless stages, offscreen entrants, authored actions, combos and bounded world OK',JSON.stringify(result));await page.reload();await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});assert.equal(await page.evaluate(()=>window.gameDebug().best.levels),targetAreas);assert.equal(await page.evaluate(()=>window.gameDebug().encounter.index),0);console.log('Record survived reload; new run reset');
 }finally{await browser.close();}

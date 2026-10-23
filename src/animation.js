@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {applyUserAction,blendUserTransition} from './user-actions.js';
 
 const smooth = t => {t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -54,13 +55,14 @@ export function prepareAnimator(actor){
   }
   b.curledMatrix.premultiply(curl);
  }
- actor.rigid=[];actor.visual.traverse(mesh=>{if(mesh.isMesh&&!mesh.isSkinnedMesh){actor.rigid.push({mesh,matrix:new THREE.Matrix4().multiplyMatrices(inverse,mesh.matrixWorld)});mesh.matrixAutoUpdate=false;}});
+ actor.rigid=[];actor.visual.traverse(mesh=>{if(mesh.isMesh&&!mesh.isSkinnedMesh){let parent=mesh.parent;while(parent&&!parent.isBone)parent=parent.parent;actor.rigid.push({mesh,parentBoneName:parent?(parent.userData.name??parent.name):null,matrix:new THREE.Matrix4().multiplyMatrices(inverse,mesh.matrixWorld)});mesh.matrixAutoUpdate=false;}});
  actor.posedWorld=new Map();
  const skeletons=new Set();actor.visual.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});
  for(const skeleton of skeletons){const offset=new THREE.Matrix4();skeleton.update=function(){for(let i=0;i<this.bones.length;i++){const world=actor.posedWorld.get(this.bones[i])??this.bones[i].matrixWorld;offset.multiplyMatrices(world,this.boneInverses[i]).toArray(this.boneMatrices,i*16);}if(this.boneTexture)this.boneTexture.needsUpdate=true;};}
  actor.animationScratch={desired:new THREE.Matrix4()};
 }
 export function pose(actor,time,walk,kind,progress){
+ const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const p=sampleMotion(time,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
  actor.visual.position.y=actor.baseVisualY+p.drop;
@@ -78,5 +80,6 @@ export function pose(actor,time,walk,kind,progress){
  const {desired}=actor.animationScratch;
  for(const b of actor.bind){desired.copy(actor.visual.matrixWorld).multiply(transforms[b.group==='body'?'body':b.group+b.side]).multiply(b.curledMatrix);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(desired);}
  for(const b of actor.rigid){desired.copy(actor.visual.matrixWorld).multiply(body).multiply(b.matrix);b.mesh.matrix.copy(b.mesh.parent.matrixWorld).invert().multiply(desired);b.mesh.updateWorldMatrix(false,false);}
+ blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));
  return p;
 }

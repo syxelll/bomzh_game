@@ -14,12 +14,12 @@ test('attack motion stays finite and returns to the same guard without a loop sn
   assert.ok(Math.abs(Math.sin(end.spin))<1e-10);
  }
 });
-test('contact poses extend the striking limb and alternating punches change arms',()=>{
- const punch=sampleMotion(0,false,'jab',attacks.jab.hitAt,1);
- const other=sampleMotion(0,false,'jab',attacks.jab.hitAt,2);
+test('fallback contact poses extend the striking limb and alternating punches change arms',()=>{
+ const punch=sampleMotion(0,false,'jab',.43,1);
+ const other=sampleMotion(0,false,'jab',.43,2);
  assert.ok(Math.abs(punch.left[1])<.2);assert.ok(Math.abs(punch.right[1])>1);
  assert.ok(Math.abs(other.right[1])<.2);assert.ok(Math.abs(other.left[1])>1);
- const kick=sampleMotion(0,false,'kick',attacks.kick.hitAt);
+ const kick=sampleMotion(0,false,'kick',.48);
  assert.ok(kick.left[2]<-1.4&&Math.abs(kick.left[3])<.15);
  assert.ok(Math.abs(kick.right[2])<.2);
 });

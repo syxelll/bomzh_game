@@ -1,0 +1,4 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {readRecord,saveRecord} from '../src/records.js';
+const store=()=>{const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v)};};
+test('record prioritizes distance and survives a new run',()=>{const storage=store();assert.deepEqual(readRecord(storage),{levels:0,score:0});saveRecord({levels:3,score:500},storage);saveRecord({levels:2,score:1000},storage);assert.deepEqual(readRecord(storage),{levels:3,score:500});saveRecord({levels:3,score:600},storage);assert.equal(readRecord(storage).score,600);});
+test('bad or unavailable storage cannot break play',()=>{assert.deepEqual(readRecord({getItem:()=>'{bad'}),{levels:0,score:0});assert.deepEqual(saveRecord({levels:1,score:100},{getItem:()=>{throw Error();},setItem:()=>{throw Error();}}),{levels:1,score:100});assert.deepEqual(saveRecord({levels:NaN,score:0},store()),{levels:0,score:0});});
