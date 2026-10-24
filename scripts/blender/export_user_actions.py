@@ -1,4 +1,8 @@
-import bpy,json,struct,pathlib,math,hashlib
+import bpy,json,struct,pathlib,math,hashlib,sys,argparse
+parser=argparse.ArgumentParser()
+parser.add_argument("--source",default="/workspace/model-sources/hobo-poses-original.blend")
+parser.add_argument("--baseline",default="/workspace/model-sources/hobo.blend")
+args=parser.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else [])
 from mathutils import Matrix
 root=pathlib.Path('/workspace/bomzh_game')
 blob=(root/'public/models/hobo.glb').read_bytes();n=struct.unpack_from('<I',blob,12)[0];g=json.loads(blob[20:20+n]);base=28+n;weighted=set()
@@ -12,20 +16,32 @@ for mesh in g['meshes']:
    ws=struct.unpack_from('<ffff',blob,base+wv.get('byteOffset',0)+weights.get('byteOffset',0)+i*wv.get('byteStride',16))
    for j,w in zip(js,ws):
     if w>0:weighted.add(g['nodes'][g['skins'][0]['joints'][j]]['name'])
+weighted.add('root.x')
 # Rigid bone attachments such as hats must follow their animated parent too.
 parents={c:i for i,node in enumerate(g['nodes']) for c in node.get('children',[])}
 for i,node in enumerate(g['nodes']):
  if 'mesh' in node and 'skin' not in node:
   parent=parents.get(i)
   if parent is not None:weighted.add(g['nodes'][parent].get('name',''))
-bpy.ops.wm.open_mainfile(filepath='/workspace/model-sources/hobo.blend',use_scripts=False)
+bpy.ops.wm.open_mainfile(filepath=args.baseline,use_scripts=False)
 rig=bpy.data.objects['rig'];bpy.context.view_layer.update()
 baseline={p.name:(rig.matrix_world@p.matrix).copy() for p in rig.pose.bones}
 bases={p.name:p.matrix_basis.copy() for p in rig.pose.bones}
 properties={p.name:{k:v for k,v in p.items() if isinstance(v,(int,float,bool))} for p in rig.pose.bones}
 C=Matrix.Rotation(-math.pi/2,4,'X');invC=C.inverted()
-bpy.ops.wm.open_mainfile(filepath='/workspace/model-sources/hobo-poses-original.blend',use_scripts=False)
+bpy.ops.wm.open_mainfile(filepath=args.source,use_scripts=False)
 rig=bpy.data.objects['rig'];rig.animation_data_create()
+if not bpy.data.actions.get('kick'):
+ with bpy.data.libraries.load('/workspace/model-sources/hobo-poses-original.blend',link=False) as (source,target):target.actions=['kick'] if 'kick' in source.actions else []
+# Use the authored idle as defaults for channels omitted from the walking action.
+idle=bpy.data.actions.get('idle')
+if idle:
+ rig.animation_data.action=idle
+ if idle.slots:rig.animation_data.action_slot=idle.slots[0]
+ bpy.context.scene.frame_set(round(idle.frame_range[0]));bpy.context.view_layer.update()
+ bases={p.name:p.matrix_basis.copy() for p in rig.pose.bones}
+ properties={p.name:{k:v for k,v in p.items() if isinstance(v,(int,float,bool))} for p in rig.pose.bones}
+
 for obj in bpy.data.objects:
  if obj.type=='MESH':obj.hide_viewport=True
 if rig.animation_data:
@@ -33,18 +49,22 @@ if rig.animation_data:
 names=sorted(n for n in weighted if n in baseline and n in rig.pose.bones)
 result={'version':1,'fps':bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,'bones':names,'clips':{}}
 for action in list(bpy.data.actions):
- if action.name not in {'idle','jab_01','kick'}:continue
+ if action.name not in {'idle','jab_01','kick','walk'}:continue
  rig.animation_data.action=None
  for bone in rig.pose.bones:
   if bone.name in bases:bone.matrix_basis=bases[bone.name]
   for key,value in properties.get(bone.name,{}).items():bone[key]=value
  rig.animation_data.action=action
  if action.slots:rig.animation_data.action_slot=action.slots[0]
- start,end=map(round,action.frame_range);frames=[];measure=[]
+ start,end=map(round,action.frame_range);frames=[];measure=[];anchor=None
  for frame in range(start,end+1):
   bpy.context.scene.frame_set(frame);bpy.context.view_layer.update();evaluated=rig.evaluated_get(bpy.context.evaluated_depsgraph_get());values=[]
+  root_position=(C@evaluated.matrix_world@evaluated.pose.bones['root.x'].matrix).translation
+  if anchor is None:anchor=root_position.copy()
+  shift=root_position-anchor
+  motion=Matrix.Translation((-shift.x,0,-shift.z)) if action.name in {'walk','idle'} else Matrix.Identity(4)
   for name in names:
-   delta=C@evaluated.matrix_world@evaluated.pose.bones[name].matrix@baseline[name].inverted()@invC
+   delta=motion@C@evaluated.matrix_world@evaluated.pose.bones[name].matrix@baseline[name].inverted()@invC
    values.extend(round(delta[row][col],6) for col in range(4) for row in range(4))
   frames.append(values)
   measure.append({'frame':frame,**{name:[round(v,4) for v in (C@evaluated.matrix_world@evaluated.pose.bones[name].matrix).translation] for name in ['hand.l','hand.r','foot.l','foot.r','root.x'] if name in evaluated.pose.bones}})

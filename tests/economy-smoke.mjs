@@ -11,10 +11,13 @@ try{
  await page.reload();await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});let s=await page.evaluate(()=>window.gameDebug());assert.equal(s.economy.equipped,'gold');assert.equal(s.economy.coins,0);assert.deepEqual(s.economy.owned,['classic','shades','gold']);
  await page.keyboard.down('w');await page.waitForFunction(()=>window.gameDebug().player.z<-1.15);await page.keyboard.up('w');await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().bottles>=1);await page.keyboard.up('d');
  s=await page.evaluate(()=>window.gameDebug());assert.equal(s.economy.coins,3);assert.equal(s.economy.run.earned,3);console.log('Store, equip persistence and bottle coins OK');
+ if(!process.argv.includes('--shop-only')){
  await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().player.x>=0);await page.keyboard.up('d');
  await page.waitForFunction(()=>window.gameDebug().over,null,{timeout:180000});s=await page.evaluate(()=>window.gameDebug());assert.equal(await page.locator('#revive').isVisible(),true);await page.screenshot({path:'/workspace/rewards-mobile.png'});
  await page.click('#revive');await page.waitForFunction(()=>!window.gameDebug().over);let revived=await page.evaluate(()=>window.gameDebug());assert.equal(revived.health,60);assert.equal(revived.economy.run.revived,true);assert.ok(revived.player.invulnerable>2.8);assert.equal(revived.encounter.index,s.encounter.index);console.log('Death and one free revive OK');
  await page.waitForFunction(()=>window.gameDebug().over,null,{timeout:180000});assert.equal(await page.locator('#revive').isVisible(),false);const before=await page.evaluate(()=>window.gameDebug().economy);
  await page.click('#double-coins');await page.waitForFunction(()=>window.gameDebug().economy.run.doubled);const doubled=await page.evaluate(()=>window.gameDebug().economy);assert.equal(doubled.coins,before.coins+before.run.earned);assert.equal(doubled.run.closed,true);assert.equal(await page.locator('#double-coins').isVisible(),false);assert.equal(await page.locator('#revive').isVisible(),false);
  await page.click('#restart');await page.waitForFunction(()=>window.gameDebug?.().ready&&!window.gameDebug().over);s=await page.evaluate(()=>window.gameDebug());assert.equal(s.health,100);assert.equal(s.economy.run.revived,false);assert.equal(s.economy.run.earned,0);assert.equal(s.economy.coins,doubled.coins);assert.equal(s.economy.equipped,'gold');assert.deepEqual(errors,[]);console.log('Second death, one double reward, restart and wallet persistence OK');
+ }
+ assert.deepEqual(errors,[]);
 }finally{await browser.close();}

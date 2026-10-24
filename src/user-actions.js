@@ -1,18 +1,26 @@
 import * as THREE from 'three';
-export function validateActions(data){if(data?.version!==1||!Array.isArray(data.bones)||!data.bones.length||!Number.isFinite(data.fps)||data.fps<=0)throw new Error('Invalid action data');for(const name of ['idle','jab_01','kick']){const frames=data.clips?.[name]?.frames;if(!frames?.length||frames.some(f=>f.length!==data.bones.length*16||!f.every(Number.isFinite)))throw new Error(`Invalid clip ${name}`);}return data;}
-export function attachUserActions(actor,data){actor.userActions=validateActions(data);actor.userBoneIndices=new Map(data.bones.map((name,i)=>[name,i*16]));}
+export function validateActions(data){if(data?.version!==1||!Array.isArray(data.bones)||!data.bones.length||!Number.isFinite(data.fps)||data.fps<=0)throw new Error('Invalid action data');for(const name of ['idle','jab_01','kick',...(data.clips?.walk?['walk']:[])]){const frames=data.clips?.[name]?.frames;if(!frames?.length||frames.some(f=>f.length!==data.bones.length*16||!f.every(Number.isFinite)))throw new Error(`Invalid clip ${name}`);}return data;}
+export function attachUserActions(actor,data){actor.userActions=validateActions(data);actor.userBoneIndices=new Map(data.bones.map((name,i)=>[name,i*16]));actor.closedLoops=new Set(['idle','walk'].filter(name=>{const f=data.clips[name]?.frames;return f?.length&&f[0].every((v,i)=>Math.abs(v-f.at(-1)[i])<1e-5);}));}
 const tempA=new THREE.Matrix4(),tempB=new THREE.Matrix4(),tempWorld=new THREE.Matrix4();
-const blendA=new THREE.Matrix4(),blendB=new THREE.Matrix4();
+const blendA=new THREE.Matrix4(),blendB=new THREE.Matrix4(),loopFirst=new THREE.Matrix4();
 const posA=new THREE.Vector3(),posB=new THREE.Vector3(),scaleA=new THREE.Vector3(),scaleB=new THREE.Vector3(),rotA=new THREE.Quaternion(),rotB=new THREE.Quaternion();
 export function blendTransform(out,a,b,alpha){
  a.decompose(posA,rotA,scaleA);b.decompose(posB,rotB,scaleB);
  return out.compose(posA.lerp(posB,alpha),rotA.slerp(rotB,alpha).normalize(),scaleA.lerp(scaleB,alpha));
 }
 function interpolateMatrix(out,a,b,alpha,offset=0){blendA.fromArray(a,offset);blendB.fromArray(b,offset);return blendTransform(out,blendA,blendB,alpha);}
-function sample(actor,name,progress,time,offset,out){const clip=actor.userActions.clips[name],frames=clip.frames;let frame=name==='idle'?(time*actor.userActions.fps)%Math.max(1,frames.length-1):Math.max(0,Math.min(1,progress))*(frames.length-1);const lo=Math.floor(frame),hi=Math.min(frames.length-1,lo+1);return interpolateMatrix(out,frames[lo],frames[hi],frame-lo,offset);}
+function sample(actor,name,progress,time,offset,out){
+ const frames=actor.userActions.clips[name].frames,loop=name==='idle'||name==='walk',last=frames.length-1;
+ const frame=loop?(time*actor.userActions.fps)%Math.max(1,last):Math.max(0,Math.min(1,progress))*last;
+ const lo=Math.floor(frame),hi=Math.min(last,lo+1);interpolateMatrix(out,frames[lo],frames[hi],frame-lo,offset);
+ const tail=actor.closedLoops.has(name)?0:Math.min(8,last*.2);
+ if(loop&&tail>0&&frame>last-tail){const t=(frame-(last-tail))/tail;loopFirst.fromArray(frames[0],offset);blendTransform(out,out,loopFirst,t*t*(3-2*t));}
+ return out;
+}
+
 export function applyUserAction(actor,time,walk,kind,progress){
  if(!actor.userActions||actor.hurt>0||actor.dodge>0)return false;
- const name=kind==='jab'?'jab_01':kind==='kick'?'kick':!kind&&!walk?'idle':null;if(!name)return false;
+ const name=kind==='jab'?'jab_01':kind==='kick'?'kick':!kind?(walk?(actor.userActions.clips.walk?'walk':null):'idle'):null;if(!name)return false;
  actor.visual.position.y=actor.baseVisualY;actor.root.updateMatrixWorld(true);
  const clipProgress=kind==='jab'?Math.min(1,progress/.7):progress;
  function delta(bone,out){const offset=actor.userBoneIndices.get(bone);if(offset===undefined)return out.identity();sample(actor,name,clipProgress,time,offset,out);if(kind==='jab'&&progress>.7){sample(actor,'idle',0,0,offset,tempB);const t=Math.max(0,Math.min(1,(progress-.7)/.3));const alpha=t*t*(3-2*t);blendTransform(out,out,tempB,alpha);}return out;}

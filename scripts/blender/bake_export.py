@@ -6,7 +6,7 @@ s=bpy.context.scene
 s.render.engine='CYCLES';s.cycles.device='CPU';s.cycles.samples=8
 s.render.threads_mode='FIXED';s.render.threads=4
 rig=bpy.data.objects.get('rig')
-meshes=[o for o in s.objects if o.type=='MESH' and not o.name.startswith('cs_') and (name!='enemy' or o.parent==rig)]
+meshes=[o for o in s.objects if o.type=='MESH' and not o.name.startswith('cs_') and (name!='enemy' or o.parent==rig) and (not globals().get('GAME_EXPORT_MESHES') or o.name in GAME_EXPORT_MESHES)]
 for o in s.objects:
  if o not in meshes and o!=rig: o.hide_render=True
 for o in meshes:
