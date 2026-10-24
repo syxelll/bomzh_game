@@ -8,7 +8,7 @@ for(const name of ['hobo','enemy']){
  const uri='data:model/gltf-binary;base64,'+bytes.toString('base64');
  js=js.replaceAll(new RegExp(`/models/${name}\\.glb(?:\\?[^\"'\\s]*)?`,'g'),uri);
 }
-const actionBytes=await fs.readFile(new URL('models/hobo-actions.json',root));js=js.replaceAll('/models/hobo-actions.json','data:application/json;base64,'+actionBytes.toString('base64'));
+const actionBytes=await fs.readFile(new URL('models/hobo-actions.json',root));js=js.replace(/\/models\/hobo-actions\.json(?:\?[^"']*)?/g,'data:application/json;base64,'+actionBytes.toString('base64'));
 const cssPath=html.match(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/)[1];
 const css=await fs.readFile(new URL(cssPath.slice(1),root),'utf8');
 html=html.replace(/<script async src="https:\/\/telegram.org[^>]*><\/script>/,'');
