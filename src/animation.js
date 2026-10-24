@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import {applyUserAction,blendUserTransition} from './user-actions.js';
+import {applyUserAction,applyReferenceHands} from './user-actions.js';
+import {blendUserTransition,updateRigidAttachments} from './pose-transitions.js';
 
 const smooth = t => {t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t;
@@ -46,7 +47,7 @@ export function prepareAnimator(actor){
  for(const [side,suffix] of [['left','.l'],['right','.r']])actor.pivots[side]={shoulder:point('arm'+suffix,new THREE.Vector3()),elbow:point('forearm'+suffix,new THREE.Vector3()),hip:point('thigh'+suffix,new THREE.Vector3()),knee:point('leg'+suffix,new THREE.Vector3()),wrist:point('hand'+suffix,new THREE.Vector3())};
  // Curl fingers in model space; preserve every joint's original scale and bind matrix.
  for(const b of actor.bind){
-  const finger=b.name.match(/(thumb|index|middle|ring|pinky)([123])(?:_rot)?\.([lr])/);
+  const finger=b.name.match(/(thumb|index|middle|ring|pinky)([123])(?:_base|_rot)?\.([lr])/);
   b.curledMatrix=b.matrix.clone();if(!finger)continue;
   const curl=new THREE.Matrix4();
   for(let joint=1;joint<=Number(finger[2]);joint++){
@@ -64,7 +65,7 @@ export function prepareAnimator(actor){
  actor.animationScratch={desired:new THREE.Matrix4()};
 }
 export function pose(actor,time,walk,kind,progress){
- const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const p=sampleMotion(time,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
  actor.visual.position.y=actor.baseVisualY+p.drop;
@@ -89,7 +90,8 @@ export function pose(actor,time,walk,kind,progress){
  }
  const {desired}=actor.animationScratch;
  for(const b of actor.bind){desired.copy(actor.visual.matrixWorld).multiply(transforms[b.group==='body'?'body':b.group+b.side]).multiply(b.curledMatrix);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(desired);}
- for(const b of actor.rigid){desired.copy(actor.visual.matrixWorld).multiply(body).multiply(b.matrix);b.mesh.matrix.copy(b.mesh.parent.matrixWorld).invert().multiply(desired);b.mesh.updateWorldMatrix(false,false);}
- blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));
+
+ applyReferenceHands(actor);
+ blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));updateRigidAttachments(actor);
  return p;
 }

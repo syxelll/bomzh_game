@@ -11,6 +11,7 @@ import {directionYaw,turnToward} from './movement.js';
 import {chargeSuper,selectFinisherTarget,finisherPose,finisherPlacement} from './finisher.js';
 import {SprayEffect} from './spray.js';
 import {Street} from './world.js';
+import {ContactShadows} from './contact-shadows.js';
 import {Wallet,catalog} from './economy.js';
 import {rewardProvider,requestReward} from './rewards.js';
 import {Cosmetics} from './cosmetics.js';
@@ -19,18 +20,19 @@ import {laneBounds,offscreenSpawn} from './spawning.js';
 import { pose, prepareAnimator, sampleMotion } from './animation.js';
 
 const $ = id => document.getElementById(id);
-const scene = new THREE.Scene(); scene.background = new THREE.Color('#94aaa3'); scene.fog = new THREE.Fog('#94aaa3', 26, 65);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#92968d'); scene.fog = new THREE.Fog('#92968d', 24, 62);
 const lowQuality = innerWidth < 650 || new URLSearchParams(location.search).get('quality') === 'low';
 const renderer = new THREE.WebGLRenderer({ canvas: $('game'), antialias: !lowQuality, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, lowQuality ? 1 : 1.5)); renderer.shadowMap.enabled = !lowQuality;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
 const camera = new THREE.PerspectiveCamera(42, 1, .1, 100);
 const cameraRig=new GameCamera(camera,{reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
-scene.add(new THREE.HemisphereLight('#e9e6d3', '#536850', 2.4));
-const sun = new THREE.DirectionalLight('#ffdfaa', 3); sun.position.set(-4,12,8); sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;scene.add(sun,sun.target);
+scene.add(new THREE.HemisphereLight('#e1e4e2', '#696a67', 2.6));
+const sun = new THREE.DirectionalLight('#f1e8df', 2.2); sun.position.set(-8,14,6); sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;sun.shadow.normalBias=.025;sun.shadow.radius=3;scene.add(sun,sun.target);
 const mat=color=>new THREE.MeshStandardMaterial({color,roughness:.92});
+const contactShadows=new ContactShadows(scene);
 const sprayEffect=new SprayEffect(scene);
 const street=new Street(scene);street.update(-8);
 const state={health:100,bottles:0,score:0,defeated:0,bruisersDefeated:0,over:false};
@@ -123,7 +125,7 @@ for(const b of document.querySelectorAll('[data-move]')){
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){if(shopOpen)closeShop();else togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
-function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y};prepareAnimator(actor);return actor;}
+function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y,shadow:contactShadows.add()};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
 try{
  const [hero,enemy,actions]=await Promise.all([loader.loadAsync('/models/hobo.glb'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();})]);
@@ -174,7 +176,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
    enemy.root.position.set(enemy.x,0,enemy.z);enemy.root.rotation.y=turnToward(enemy.root.rotation.y,directionYaw(player.x-enemy.x,player.z-enemy.z),dt);
    enemy.bar.scale.x=Math.max(0,enemy.health/enemy.spec.health);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':enemy.spec.color);pose(enemy,time,moving,(enemy.windup>0||enemy.strike>0)?'jab':null,enemy.strike>0?.25+.75*(1-enemy.strike/.3):enemy.windup>0?.25*(1-enemy.windup/enemy.spec.windup):0);
   }
-  for(let i=enemies.length-1;i>=0;i--)if(enemies[i].health<=0&&enemies[i].corpseAge>3){const e=enemies[i];scene.remove(e.root,e.warning);for(const mesh of [e.warning,e.bar,e.badge]){mesh.geometry.dispose();mesh.material.dispose();}const skeletons=new Set();e.root.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});for(const skeleton of skeletons)skeleton.dispose();enemies.splice(i,1);}
+  for(let i=enemies.length-1;i>=0;i--)if(enemies[i].health<=0&&enemies[i].corpseAge>3){const e=enemies[i];scene.remove(e.root,e.warning,e.shadow);for(const mesh of [e.warning,e.bar,e.badge]){mesh.geometry.dispose();mesh.material.dispose();}const skeletons=new Set();e.root.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});for(const skeleton of skeletons)skeleton.dispose();enemies.splice(i,1);}
   street.update(player.x);const collected=street.collect(player);if(collected){const before=state.bottles;state.bottles+=collected;wallet.earn(collected*3);state.score+=collected*10;if(Math.floor(state.bottles/5)>Math.floor(before/5))state.health=Math.min(100,state.health+5);tone(650);toast(`+${collected} бутылка · +${collected*10} очков`);updateHUD();}
   const pending=pendingSpawns.map(item=>({encounter:item.arena.id,health:1}));const event=encounters.update(dt,player.x,[...enemies,...pending]);
   if(event?.type==='spawn')for(const foe of event.enemies)pendingSpawns.push({foe,arena:event.arena,wait:foe.delay});
@@ -204,9 +206,9 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
  if(time>toastUntil)$('toast').textContent='';
  sprayEffect.update(player,ready&&!state.over&&!cinematic&&player.attack==='spray'&&player.attackTime/attacks.spray.duration>=.2&&player.attackTime/attacks.spray.duration<=.8,time);
  $('shop-open').disabled=!ready||!!cinematic;
- cosmetics?.update();
+ cosmetics?.update();if(ready){contactShadows.update(player);for(const e of enemies)contactShadows.update(e);}
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:rawDt,width:innerWidth,height:innerHeight});
- sun.position.x=targetX-4;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
+ sun.position.x=targetX-8;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<650?53:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
