@@ -11,3 +11,10 @@ test('the support sole reaches the plane while the kicking foot stays raised',()
  const {actor,bones}=feetActor();assert.ok(Math.abs(feetHeight(actor)-.4)<1e-6);groundPose(actor);assert.ok(Math.abs(feetHeight(actor))<1e-6);assert.ok(Math.abs(actor.posedWorld.get(bones[1]).elements[13]-.6)<1e-6);
 });
 test('corpses and knocked-down actors keep their staged airborne/fall poses',()=>{const {actor,bones}=feetActor();actor.health=0;groundPose(actor);assert.equal(actor.feetY,null);assert.equal(actor.posedWorld.get(bones[0]).elements[13],.3);});
+
+test('foot IK plants through the knee without moving the hip or changing leg lengths',async()=>{
+ const {solveFoot}=await import('../src/foot-ik.js');const hip=new T.Bone(),knee=new T.Bone(),ankle=new T.Bone();
+ const h=new T.Vector3(0,1,0),k=new T.Vector3(0,.55,.14),a=new T.Vector3(0,.1,0),matrix=p=>new T.Matrix4().makeTranslation(p.x,p.y,p.z);
+ const actor={root:new T.Group(),posedWorld:new Map([[hip,matrix(h)],[knee,matrix(k)],[ankle,matrix(a)]]),ikLegs:new Map([['l',{hip,knee,ankle,groups:{upper:[hip],lower:[knee],foot:[ankle]}}]])};
+ assert.equal(solveFoot(actor,'l',.05),true);const point=b=>new T.Vector3().setFromMatrixPosition(actor.posedWorld.get(b));assert.ok(point(hip).distanceTo(h)<1e-8);assert.ok(Math.abs(point(ankle).y-.15)<1e-8);assert.ok(Math.abs(point(hip).distanceTo(point(knee))-h.distanceTo(k))<1e-8);assert.ok(Math.abs(point(knee).distanceTo(point(ankle))-k.distanceTo(a))<1e-8);
+});

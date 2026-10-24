@@ -19,7 +19,7 @@ export function sampleMotion(time,walk,kind,progress=0,combo=1){
   if(walk)for(const [i,side] of ['left','right'].entries()){
    const swing=Math.sin(time*9+i*Math.PI);p[side][0]+=.25*swing;p[side][1]+=.15*Math.max(0,-swing);p[side][2]=.42*swing;p[side][3]=.55*Math.max(0,swing);
   }
-  p.drop=walk?-.025*Math.abs(Math.sin(time*9)):-.005*(1+Math.sin(time*2));return p;
+  p.drop=walk?-.008*Math.abs(Math.sin(time*9)):-.005*(1+Math.sin(time*2));return p;
  }
  const active=combo%2===0?'right':'left';let frames;
  if(kind==='finisher'){
@@ -66,7 +66,7 @@ export function prepareAnimator(actor){
  actor.animationScratch={desired:new THREE.Matrix4()};prepareGrounding(actor);
 }
 export function pose(actor,time,walk,kind,progress){
- const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);groundPose(actor);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);groundPose(actor,0,{kind,time});updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const motionTime=walk&&Number.isFinite(actor.walkDistance)?actor.walkDistance/(actor.walkStride??(actor.height??1.85)*.65)*(2*Math.PI/9):time;
  const p=sampleMotion(motionTime,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
@@ -94,6 +94,6 @@ export function pose(actor,time,walk,kind,progress){
  for(const b of actor.bind){desired.copy(actor.visual.matrixWorld).multiply(transforms[b.group==='body'?'body':b.group+b.side]).multiply(b.curledMatrix);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(desired);}
 
  applyReferenceHands(actor);
- blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor);updateRigidAttachments(actor);
+ blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor,0,{kind,time});updateRigidAttachments(actor);
  return p;
 }
