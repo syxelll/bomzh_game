@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import {walkFrame} from './locomotion.js';
 import {blendTransform,blendUserTransition} from './pose-transitions.js';
 export {blendTransform,blendUserTransition} from './pose-transitions.js';
-export function validateActions(data){if(data?.version!==1||!Array.isArray(data.bones)||!data.bones.length||!Number.isFinite(data.fps)||data.fps<=0)throw new Error('Invalid action data');for(const name of ['idle','jab_01','kick',...(data.clips?.walk?['walk']:[])]){const frames=data.clips?.[name]?.frames;if(!frames?.length||frames.some(f=>f.length!==data.bones.length*16||!f.every(Number.isFinite)))throw new Error(`Invalid clip ${name}`);}return data;}
-export function attachUserActions(actor,data){actor.userActions=validateActions(data);actor.userBoneIndices=new Map(data.bones.map((name,i)=>[name,i*16]));actor.walkStride=measureStride(actor);actor.closedLoops=new Set(['idle','walk'].filter(name=>{const f=data.clips[name]?.frames;return f?.length&&f[0].every((v,i)=>Math.abs(v-f.at(-1)[i])<1e-5);}));}
+export function validateActions(data){if(data?.version!==1||!Array.isArray(data.bones)||!data.bones.length||!Number.isFinite(data.fps)||data.fps<=0)throw new Error('Invalid action data');if(!data.clips?.idle||!(data.clips.jab_01||comboClips(data).length))throw new Error('Missing authored idle or attack');for(const name of Object.keys(data.clips??{})){const frames=data.clips?.[name]?.frames;if(!frames?.length||frames.some(f=>f.length!==data.bones.length*16||!f.every(Number.isFinite)))throw new Error(`Invalid clip ${name}`);}return data;}
+export function comboClips(data){return Object.keys(data?.clips??{}).filter(n=>n.endsWith('_combo')).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));}
+export function comboSpec(data,index){const name=comboClips(data)[index],clip=data?.clips[name];if(!clip)return null;const duration=Math.max(.3,clip.duration);return {...(name.startsWith('kick')?{range:1.9,damage:18}:{}),clip:name,duration,cooldown:duration,hitAt:clip.markers?.hit!==undefined?clip.markers.hit/(clip.frames.length-1):.9};}
+export function attachUserActions(actor,data){actor.userActions=validateActions(data);actor.userBoneIndices=new Map(data.bones.map((name,i)=>[name,i*16]));actor.walkStride=measureStride(actor);actor.walkSpeed=data.clips.walk?actor.walkStride/data.clips.walk.duration:undefined;actor.closedLoops=new Set(['idle','walk'].filter(name=>{const f=data.clips[name]?.frames;return f?.length&&f[0].every((v,i)=>Math.abs(v-f.at(-1)[i])<1e-5);}));}
 function measureStride(actor){
  const data=actor.userActions,clip=data.clips.walk;let span=0;
  if(clip)for(const name of ['foot.l','foot.r']){const offset=actor.userBoneIndices.get(name),bind=actor.bind.find(b=>b.name===name);if(offset===undefined||!bind)continue;let min=Infinity,max=-Infinity;for(const frame of clip.frames){const point=new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(frame,offset).multiply(bind.matrix));min=Math.min(min,point.z);max=Math.max(max,point.z);}span=Math.max(span,max-min);}
@@ -23,15 +25,16 @@ function sample(actor,name,progress,time,offset,out){
 
 export function applyUserAction(actor,time,walk,kind,progress){
  if(!actor.userActions||actor.hurt>0||actor.dodge>0)return false;
- const name=kind==='jab'?'jab_01':kind==='kick'?'kick':!kind?(walk?(actor.userActions.clips.walk?'walk':null):'idle'):null;if(!name)return false;
+ const name=kind==='jab'?(actor.attackSpec?.clip??comboClips(actor.userActions)[Math.max(0,(actor.combo??1)-1)%Math.max(1,comboClips(actor.userActions).length)]??'jab_01'):kind==='kick'?'kick':!kind?(walk?(actor.userActions.clips.walk?'walk':null):'idle'):null;if(!name||!actor.userActions.clips[name])return false;
  actor.visual.position.y=actor.baseVisualY;actor.root.updateMatrixWorld(true);
- const returning=kind==='jab'&&progress>.76;
- const sampleName=returning?'idle':name,clipProgress=kind==='jab'?Math.min(1,progress/.7):progress;
+ const returning=kind==='jab'&&!name.endsWith('_combo')&&progress>.76;
+ const sampleName=returning?'idle':name,clipProgress=kind==='jab'&&!name.endsWith('_combo')?Math.min(1,progress/.7):progress;
  function delta(bone,out){const offset=actor.userBoneIndices.get(bone);if(offset===undefined)return out.identity();return sample(actor,sampleName,clipProgress,returning?0:time,offset,out);}
 
  for(const b of actor.bind){delta(b.name,tempA);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(actor.visual.matrixWorld).multiply(tempA).multiply(b.matrix);}
 
- return returning?'jab:return':name;
+ if(name.endsWith('_combo'))applyReferenceHands(actor);
+ return returning?'jab:return':kind==='jab'?name+':'+(actor.attackSerial??0):name;
 }
 // Reuse the authored hand shape for procedural moves instead of curling weighted
 // ARP control bones independently (which separates vertices at finger bases).

@@ -73,7 +73,7 @@ export function blendUserTransition(actor,time,id){
  for(const [bone,world] of actor.posedWorld)target.set(bone,inverse.clone().multiply(world));
  normalizeHands(actor,target);
  if(actor.motionId!==id){actor.transitionFrom=actor.lastMotion;actor.transitionStart=time;actor.motionId=id;}
- const duration=id==='jab:return'?.14:.12,t=Math.min(1,Math.max(0,(time-actor.transitionStart)/duration)),alpha=t*t*(3-2*t);
+ const duration=id==='jab:return'?.14:id.includes('_combo:')?.06:.12,t=Math.min(1,Math.max(0,(time-actor.transitionStart)/duration)),alpha=t*t*(3-2*t);
  const final=actor.transitionFrom&&alpha<1?blendPoseMaps(actor,actor.transitionFrom,target,alpha):target;
  for(const [bone,model] of final)actor.posedWorld.get(bone).copy(actor.visual.matrixWorld).multiply(model);
  actor.lastMotion=final;if(alpha===1)actor.transitionFrom=null;

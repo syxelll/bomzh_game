@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { attacks, canHit } from './game.js';
 import './style.css';
-import {attachUserActions} from './user-actions.js';
+import {attachUserActions,comboClips,comboSpec} from './user-actions.js';
 import {Encounters} from './encounters.js';
 import {GameCamera} from './camera.js';
 import {enemyTypes,staminaCosts,spendStamina,recoverStamina,enemyConnects} from './combat.js';
@@ -97,12 +97,14 @@ $('restart').onclick=()=>location.reload();
 function togglePause(){if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
 $('pause').onclick=togglePause;$('resume').onclick=togglePause;
 function attack(kind){
+ if(kind==='kick')return;
  if(!ready||state.over||paused||cinematic||player.stun>0||player.dodge>0)return;
- if(player.attack){if(player.attackTime/attacks[player.attack].duration>.45)player.queuedAttack={kind,until:time+attacks[player.attack].duration-player.attackTime+.12};return;}
+ if(player.attack){if(player.attackTime/(player.attackSpec??attacks[player.attack]).duration>.15)player.queuedAttack={kind,until:time+(player.attackSpec??attacks[player.attack]).duration-player.attackTime+.2};return;}
  if(player.cooldowns[kind]>0)return;
  if(!spendStamina(player,kind)){toast('Передохни или продолжай кулаками — они не тратят силы');return;}
- player.attack=kind;player.attackTime=0;player.cooldowns[kind]=attacks[kind].cooldown;player.hit=false;player.sprayHits=new Set();
- if(kind==='jab'){player.combo=time-player.lastJab<1.1?(player.combo%3)+1:1;player.lastJab=time;}else player.combo=0;
+ if(kind==='jab'){const count=comboClips(player.userActions).length||3;player.combo=time-player.lastJab<(player.attackSpec?.duration??.65)+.65?(player.combo%count)+1:1;player.lastJab=time;}else player.combo=0;
+ player.attackSpec=kind==='jab'?{...attacks.jab,...comboSpec(player.userActions,player.combo-1)}:attacks[kind];player.attackSerial=(player.attackSerial??0)+1;
+ player.attack=kind;player.attackTime=0;player.cooldowns[kind]=player.attackSpec.cooldown;player.hit=false;player.sprayHits=new Set();
  tone(kind==='kick'?180:300);
 }
 function dodge(){if(!ready||state.over||paused||cinematic||player.dodgeCooldown>0||!spendStamina(player,'dodge'))return;let x=Number(keys.has('right'))-Number(keys.has('left')),z=Number(keys.has('down'))-Number(keys.has('up'));const len=Math.hypot(x,z);if(len){x/=len;z/=len;}else{x=player.facing;z=0;}player.dashX=x;player.dashZ=z;player.dodge=.24;player.dodgeCooldown=.85;player.invulnerable=Math.max(player.invulnerable,.3);player.attack=null;player.queuedAttack=null;player.stun=0;player.combo=0;cameraRig.impact(.08);tone(520);}
@@ -126,7 +128,7 @@ for(const b of document.querySelectorAll('[data-move]')){
  for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(k));
 }
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){if(shopOpen)closeShop();else togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){if(shopOpen)closeShop();else togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,height,walkDistance:0,baseVisualY:visual.position.y,shadow:contactShadows.add()};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
@@ -156,12 +158,12 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
   player.invulnerable=Math.max(0,player.invulnerable-dt);player.hurt=Math.max(0,(player.hurt??0)-dt);
   let dx=Number(keys.has('right'))-Number(keys.has('left')),dz=Number(keys.has('down'))-Number(keys.has('up'));const length=Math.hypot(dx,dz);player.moving=length>0;if(length){dx/=length;dz/=length;}
   const oldX=player.x,oldZ=player.z;
-  if(player.dodge>0){dx=player.dashX;dz=player.dashZ;}const speed=player.dodge>0?8:player.stun>0?.6:player.attack?.35:WALK_SPEED;let [left,right]=encounters.bounds;if(encounters.active){const visible=laneBounds(cameraRig.framingCamera,player.z);left=Math.max(left,visible[0]+.9);right=Math.min(right,visible[1]-.9);if(left>right){left=encounters.bounds[0];right=encounters.bounds[1];}}left=Math.max(left,returnWall);player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,left,right);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(length&&!player.attack){player.heading=turnToward(player.heading,directionYaw(dx,dz),dt);if(dx)player.facing=Math.sign(dx);}
+  if(player.dodge>0){dx=player.dashX;dz=player.dashZ;}const speed=player.dodge>0?8:player.stun>0?.6:player.attack?.35:(player.walkSpeed??WALK_SPEED);let [left,right]=encounters.bounds;if(encounters.active){const visible=laneBounds(cameraRig.framingCamera,player.z);left=Math.max(left,visible[0]+.9);right=Math.min(right,visible[1]-.9);if(left>right){left=encounters.bounds[0];right=encounters.bounds[1];}}left=Math.max(left,returnWall);player.x=THREE.MathUtils.clamp(player.x+dx*speed*dt,left,right);player.z=THREE.MathUtils.clamp(player.z+dz*speed*dt,-2,2.1);if(length&&!player.attack){player.heading=turnToward(player.heading,directionYaw(dx,dz),dt);if(dx)player.facing=Math.sign(dx);}
   const travelled=Math.hypot(player.x-oldX,player.z-oldZ);player.moving=travelled>1e-5;if(!player.attack&&player.dodge<=0)advanceWalk(player,travelled);
   let progress=0;
-  if(player.attack){const spec=attacks[player.attack];player.attackTime+=dt;progress=player.attackTime/spec.duration;
+  if(player.attack){const spec=player.attackSpec??attacks[player.attack];player.attackTime+=dt;progress=player.attackTime/spec.duration;
    if(progress>=spec.hitAt&&(player.attack==='spray'?progress<=spec.activeUntil:!player.hit)){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&!(player.attack==='spray'&&player.sprayHits.has(enemy))&&canHit(player,enemy,player.attack)){if(player.attack==='spray')player.sprayHits.add(enemy);superPower=chargeSuper(superPower,12);enemy.health-=spec.damage+(player.combo===3?12:0);const finisher=player.combo===3;enemy.knockback=player.facing*(finisher?5:player.attack==='kick'?4:1.4);enemy.flash=.22;impact(enemy.x,enemy.z,finisher?.26:player.attack==='kick'?.24:player.attack==='spray'?.1:.18);if(enemy.type!=='bruiser'||player.attack!=='jab'){enemy.windup=0;enemy.strike=0;enemy.cooldown=.4;enemy.stun=player.attack==='jab'?.22:player.attack==='spray'?.7:.4;if(finisher){enemy.down=1.25;enemy.stun=0;}}hits++;if(enemy.health<=0){awardDefeat(enemy);superPower=chargeSuper(superPower,18);toast('Противник побеждён');}}}if(hits){tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
-   if(progress>=1){player.attack=null;if(player.queuedAttack){const queued=player.queuedAttack;player.queuedAttack=null;if(queued.until>=time)attack(queued.kind);}}
+   if(progress>=1){player.cooldowns[player.attack]=Math.max(0,player.cooldowns[player.attack]-1e-6);player.attack=null;if(player.queuedAttack){const queued=player.queuedAttack;player.queuedAttack=null;if(queued.until>=time){attack(queued.kind);progress=0;}}}
   }
   player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.heading+sampleMotion(time,player.moving,player.attack,progress,player.combo).spin;pose(player,time,player.moving,player.attack,progress);
   for(const enemy of enemies){
@@ -217,7 +219,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<650?53:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}

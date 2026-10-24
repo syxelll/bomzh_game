@@ -8,7 +8,7 @@ export function canHit(player, enemy, kind) {
   const dx = enemy.x - player.x, dz = enemy.z - player.z;
   const heading=player.heading??player.facing*Math.PI/2,forward=dx*Math.sin(heading)+dz*Math.cos(heading),across=Math.abs(dx*Math.cos(heading)-dz*Math.sin(heading));
   if(kind==='spray')return forward>.15&&forward<attacks.spray.range&&across<.38+forward*.16;
-  return Math.hypot(dx,dz)<attacks[kind].range&&forward>-.15;
+  return Math.hypot(dx,dz)<(player.attackSpec?.range??attacks[kind].range)&&forward>-.15;
 }
 export function sellBottles(state) {
   const count = state.bottles;

@@ -28,3 +28,14 @@ test('planting nearly straight legs never amplifies inward knee noise into cross
   assert.equal(solveFoot(actor,'l',.05),true);const localKnee=new T.Vector3().setFromMatrixPosition(actor.posedWorld.get(knee)).applyMatrix4(root.matrixWorld.clone().invert());assert.ok(localKnee.x*sign>=.12,'knee cannot collapse toward the opposite leg');assert.ok(localKnee.z>0,'knee bends forward');
  }
 });
+
+test('authored gait preserves leg joints and bounds vertical correction instead of re-solving knees',()=>{
+ const {actor,bones}=feetActor();actor.userActions={};actor.transitionStart=-1;
+ groundPose(actor,0,{time:1});const initial=actor.groundOffset;
+ actor.posedWorld.get(bones[0]).elements[13]+=.03;
+ actor.posedWorld.get(bones[1]).elements[13]+=.03;
+ const before=actor.posedWorld.get(bones[1]).elements[13]-actor.posedWorld.get(bones[0]).elements[13];
+ groundPose(actor,0,{time:1+1/60});
+ assert.ok(Math.abs(actor.groundOffset-initial)<=.00120001);
+ assert.ok(Math.abs(actor.posedWorld.get(bones[1]).elements[13]-actor.posedWorld.get(bones[0]).elements[13]-before)<1e-8);
+});

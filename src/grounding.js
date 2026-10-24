@@ -33,6 +33,14 @@ export function feetHeight(actor){const h=footHeights(actor),min=Math.min(h.l,h.
 function translateBody(actor,dy){for(const matrix of actor.posedWorld.values())matrix.elements[13]+=dy;}
 export function groundPose(actor,groundY=0,{kind=null,time=0}={}){
  const min=feetHeight(actor);if(min===null||actor.health<=0||actor.down>0||Math.abs(actor.root.rotation.z)>.3){actor.feetY=null;return;}
+ // Authored legs already contain Blender's constraints. Re-solving them at
+ // every support-foot switch causes knee snapping near full extension.
+ // Preserve those joints exactly and align the whole authored pose to its sole.
+ if(!kind&&actor.userActions){
+  const target=groundY-min,dt=Math.max(0,Math.min(.05,time-(actor.groundTime??time)));
+  const prior=actor.groundOffset??target,step=Math.max(-.072*dt,Math.min(.072*dt,(target-prior)*(1-Math.exp(-12*dt)))),correction=actor.transitionFrom&&time-(actor.transitionStart??-Infinity)<.14?target:prior+step;
+  translateBody(actor,correction);actor.groundOffset=correction;actor.groundTime=time;actor.groundMode='authored';actor.feetY=feetHeight(actor);return;
+ }
  if(!kind&&actor.ikLegs?.size===2){
   const target=actor.stableGroundOffset+groundY;
   if(actor.groundMode!=='stable'){actor.groundMode='stable';actor.groundBlendStart=time;actor.groundBlendFrom=actor.groundOffset??target;}
@@ -45,5 +53,5 @@ export function groundPose(actor,groundY=0,{kind=null,time=0}={}){
   }
   actor.feetY=feetHeight(actor);return;
  }
- actor.groundMode='pose';const correction=groundY-min;translateBody(actor,correction);actor.groundOffset=correction;actor.feetY=groundY;
+ actor.groundTime=time;actor.groundMode='pose';const correction=groundY-min;translateBody(actor,correction);actor.groundOffset=correction;actor.feetY=groundY;
 }

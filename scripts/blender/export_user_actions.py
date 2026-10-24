@@ -31,8 +31,6 @@ properties={p.name:{k:v for k,v in p.items() if isinstance(v,(int,float,bool))} 
 C=Matrix.Rotation(-math.pi/2,4,'X');invC=C.inverted()
 bpy.ops.wm.open_mainfile(filepath=args.source,use_scripts=False)
 rig=bpy.data.objects['rig'];rig.animation_data_create()
-if not bpy.data.actions.get('kick'):
- with bpy.data.libraries.load('/workspace/model-sources/hobo-poses-original.blend',link=False) as (source,target):target.actions=['kick'] if 'kick' in source.actions else []
 # Use the authored idle as defaults for channels omitted from the walking action.
 idle=bpy.data.actions.get('idle')
 if idle:
@@ -49,7 +47,7 @@ if rig.animation_data:
 names=sorted(n for n in weighted if n in baseline and n in rig.pose.bones)
 result={'version':1,'fps':bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,'bones':names,'clips':{}}
 for action in list(bpy.data.actions):
- if action.name not in {'idle','jab_01','kick','walk'}:continue
+ if action.name not in {'idle','jab_01','kick','walk'} and not action.name.endswith('_combo'):continue
  rig.animation_data.action=None
  for bone in rig.pose.bones:
   if bone.name in bases:bone.matrix_basis=bases[bone.name]
@@ -68,7 +66,7 @@ for action in list(bpy.data.actions):
    values.extend(round(delta[row][col],6) for col in range(4) for row in range(4))
   frames.append(values)
   measure.append({'frame':frame,**{name:[round(v,4) for v in (C@evaluated.matrix_world@evaluated.pose.bones[name].matrix).translation] for name in ['hand.l','hand.r','foot.l','foot.r','root.x'] if name in evaluated.pose.bones}})
- result['clips'][action.name]={'start':start,'end':end,'frames':frames,'duration':(end-start)/result['fps']}
+ result['clips'][action.name]={'start':start,'end':end,'frames':frames,'duration':(end-start)/result['fps'],'markers':{m.name:round(m.frame-start) for m in action.pose_markers}}
  print('ACTION_MEASURE',action.name,json.dumps(measure),flush=True)
 (root/'public/models/hobo-actions.json').write_text(json.dumps(result,separators=(',',':')))
 print('EXPORTED',len(names),'bones',list(result['clips']), 'fps',result['fps'],flush=True)
