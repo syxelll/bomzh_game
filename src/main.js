@@ -11,6 +11,9 @@ import {directionYaw,turnToward} from './movement.js';
 import {chargeSuper,selectFinisherTarget,finisherPose,finisherPlacement} from './finisher.js';
 import {SprayEffect} from './spray.js';
 import {Street} from './world.js';
+import {Wallet,catalog} from './economy.js';
+import {rewardProvider,requestReward} from './rewards.js';
+import {Cosmetics} from './cosmetics.js';
 import {readRecord,saveRecord} from './records.js';
 import {laneBounds,offscreenSpawn} from './spawning.js';
 import { pose, prepareAnimator, sampleMotion } from './animation.js';
@@ -32,6 +35,8 @@ const sprayEffect=new SprayEffect(scene);
 const street=new Street(scene);street.update(-8);
 const state={health:100,bottles:0,score:0,defeated:0,bruisersDefeated:0,over:false};
 const player={x:-8,z:.5,facing:1,heading:Math.PI/2,attack:null,attackTime:0,cooldowns:{jab:0,kick:0,spray:0},queuedAttack:null,stun:0,combo:0,lastJab:-10,invulnerable:0,stamina:100,regenDelay:0,dodge:0,dodgeCooldown:0,dashX:1,dashZ:0};
+const wallet=new Wallet();wallet.beginRun(globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random()}`);
+let cosmetics=null,shopOpen=false,shopWasPaused=false,rewardBusy=false;
 const encounters=new Encounters();let spawnEncounterEnemy=null;
 let cinematic=null,superPower=0,returnWall=-8;
 let paused=false,best=readRecord();const pendingSpawns=[],spawnAudit=[];
@@ -39,10 +44,52 @@ const enemies=[];const keys=new Set();let frames=0;let time=0,toastUntil=0,audio
 function toast(text){$('toast').textContent=text;toastUntil=time+2;}
 function tone(frequency=400){if(!sound)return;audio??=new AudioContext();audio.resume();const osc=audio.createOscillator(),gain=audio.createGain();osc.type='triangle';osc.frequency.setValueAtTime(frequency,audio.currentTime);gain.gain.setValueAtTime(.05,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.12);osc.connect(gain);gain.connect(audio.destination);osc.start();osc.stop(audio.currentTime+.13);}
 $('sound').onclick=()=>{sound=!sound;$('sound').textContent='Звук: '+(sound?'вкл.':'выкл.');tone();};
-function updateHUD(){best=saveRecord({levels:encounters.index,score:state.score});$('health').textContent=Math.ceil(state.health);$('level').textContent=encounters.index+1;$('score').textContent=state.score;$('best').textContent=best.levels;}
-function finish(){state.over=true;updateHUD();$('ending').hidden=false;$('ending-title').textContent='Забег окончен';$('ending-text').textContent=`Пройдено участков: ${encounters.index}. Очки: ${state.score}. Побеждено: ${state.defeated}. Рекорд: ${best.levels} участков.`;}
+function updateHUD(){best=saveRecord({levels:encounters.index,score:state.score});$('health').textContent=Math.ceil(state.health);$('level').textContent=encounters.index+1;$('score').textContent=state.score;$('best').textContent=best.levels;updateWalletUI();}
+function updateWalletUI(){
+ $('wallet').textContent=wallet.profile.coins;$('shop-open').disabled=!ready||!!cinematic;
+ $('shop-coins').textContent=wallet.profile.coins;$('storage-hint').hidden=wallet.persistent;
+ if(state.over)renderEnding();
+}
+function renderEnding(){
+ const r=wallet.run;
+ $('run-coins').textContent=`Монеты за забег: ${r.earned}${r.doubled?' + '+r.earned+' бонус':''} · В кошельке: ${wallet.profile.coins}`;
+ $('revive').hidden=r.revived||r.closed;$('revive').disabled=rewardBusy;
+ $('double-coins').hidden=r.doubled;$('double-coins').disabled=rewardBusy||r.earned===0;
+ $('reward-note').textContent=r.doubled?'Монеты удвоены. Можно начать новый забег.':'Второй шанс: 60 здоровья и 3 секунды защиты. Бонусы бесплатные в тестовой версии. Удвоение завершает забег.';
+ $('restart').disabled=rewardBusy;$('ending-shop').disabled=rewardBusy;
+}
+function finish(){state.over=true;keys.clear();updateHUD();$('ending').hidden=false;$('ending-title').textContent='Забег окончен';$('ending-text').textContent=`Пройдено участков: ${encounters.index}. Очки: ${state.score}. Побеждено: ${state.defeated}. Рекорд: ${best.levels} участков.`;$('reward-status').textContent='';renderEnding();}
+function renderShop(){
+ const container=$('shop-items');container.replaceChildren();
+ for(const item of catalog){
+  const owned=wallet.profile.owned.includes(item.id),selected=wallet.profile.equipped===item.id;
+  const card=document.createElement('article');card.className='shop-item'+(selected?' selected':'');
+  card.innerHTML=`<span class="shop-icon" aria-hidden="true">${item.icon}</span><div><h3>${item.name}</h3><p>${item.description}</p></div>`;
+  const button=document.createElement('button');button.dataset.cosmetic=item.id;button.textContent=selected?'Надето':owned?'Надеть':`${item.price} 🪙 · Купить`;button.disabled=selected||(!owned&&wallet.profile.coins<item.price);
+  button.onclick=()=>{const ok=owned?wallet.equip(item.id):wallet.buy(item.id).ok;if(ok){cosmetics?.set(wallet.profile.equipped);$('shop-status').textContent=owned?'Образ надет.':'Куплено и надето!';updateWalletUI();renderShop();}};
+  card.append(button);container.append(card);
+ }
+}
+function openShop(){if(!ready||cinematic||rewardBusy||shopOpen)return;shopWasPaused=paused;shopOpen=true;paused=true;keys.clear();$('pause-menu').hidden=true;$('shop').hidden=false;$('shop-status').textContent='';updateWalletUI();renderShop();$('shop-close').focus();}
+function closeShop(){shopOpen=false;paused=shopWasPaused;$('shop').hidden=true;$('pause-menu').hidden=!paused;if(!state.over)$('shop-open').focus();}
+$('shop-open').onclick=openShop;$('ending-shop').onclick=openShop;$('shop-close').onclick=closeShop;
+async function claimBonus(kind){
+ if(!state.over||rewardBusy||shopOpen)return;
+ const r=wallet.run;if(kind==='revive'&&(r.revived||r.closed)||kind==='double'&&(r.doubled||r.earned===0))return;
+ rewardBusy=true;renderEnding();$('reward-status').textContent='Получаем бонус…';
+ const completed=await requestReward(rewardProvider,kind,r.id);
+ if(completed&&state.over&&wallet.claim(kind,r.id)){
+  if(kind==='revive'){
+   state.over=false;state.health=60;player.stamina=100;player.stun=0;player.hurt=0;player.attack=null;player.queuedAttack=null;player.dodge=0;player.combo=0;player.invulnerable=3;keys.clear();hitStop=0;
+   for(const e of enemies){e.windup=0;e.strike=0;e.cooldown=Math.max(1.5,e.cooldown);e.stun=Math.max(1,e.stun);e.warning.visible=false;}
+   $('ending').hidden=true;toast('Второй шанс! 3 секунды защиты');
+  }else $('reward-status').textContent='Монеты удвоены!';
+ }else $('reward-status').textContent='Бонус не получен. Можно попробовать ещё раз.';
+ rewardBusy=false;updateHUD();
+}
+$('revive').onclick=()=>claimBonus('revive');$('double-coins').onclick=()=>claimBonus('double');
 $('restart').onclick=()=>location.reload();
-function togglePause(){if(!ready||state.over)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
+function togglePause(){if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
 $('pause').onclick=togglePause;$('resume').onclick=togglePause;
 function attack(kind){
  if(!ready||state.over||paused||cinematic||player.stun>0||player.dodge>0)return;
@@ -54,7 +101,7 @@ function attack(kind){
  tone(kind==='kick'?180:300);
 }
 function dodge(){if(!ready||state.over||paused||cinematic||player.dodgeCooldown>0||!spendStamina(player,'dodge'))return;let x=Number(keys.has('right'))-Number(keys.has('left')),z=Number(keys.has('down'))-Number(keys.has('up'));const len=Math.hypot(x,z);if(len){x/=len;z/=len;}else{x=player.facing;z=0;}player.dashX=x;player.dashZ=z;player.dodge=.24;player.dodgeCooldown=.85;player.invulnerable=Math.max(player.invulnerable,.3);player.attack=null;player.queuedAttack=null;player.stun=0;player.combo=0;tone(520);}
-function awardDefeat(enemy){state.score+=enemy.type==='bruiser'?75:25;state.defeated++;if(enemy.type==='bruiser')state.bruisersDefeated++;}
+function awardDefeat(enemy){state.score+=enemy.type==='bruiser'?75:25;state.defeated++;wallet.earn(enemy.type==='bruiser'?8:3);if(enemy.type==='bruiser')state.bruisersDefeated++;}
 function superAttack(){
  if(!ready||state.over||paused||cinematic||player.stun>0||player.dodge>0||player.attack)return;
  if(superPower<100){toast('Суперсила копится от попаданий');return;}
@@ -74,13 +121,13 @@ for(const b of document.querySelectorAll('[data-move]')){
  for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,()=>keys.delete(k));
 }
 const keyMap={a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right',w:'up',ArrowUp:'up',s:'down',ArrowDown:'down'};
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.repeat){if(shopOpen)closeShop();else togglePause();return;}if(paused)return;if(keyMap[e.key]){e.preventDefault();keys.add(keyMap[e.key]);}if(!e.repeat){const k=e.key.toLowerCase();if(k==='f')superAttack();if(k==='j')attack('jab');if(k==='k')attack('kick');if(k==='l')attack('spray');if(e.code==='Space'){e.preventDefault();dodge();}}});
 window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventListener('blur',()=>keys.clear());document.addEventListener('visibilitychange',()=>{keys.clear();});
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,baseVisualY:visual.position.y};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
 try{
  const [hero,enemy,actions]=await Promise.all([loader.loadAsync('/models/hobo.glb'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();})]);
- Object.assign(player,character(hero.scene,1.85));attachUserActions(player,actions);player.root.rotation.y=Math.PI/2;
+ Object.assign(player,character(hero.scene,1.85));attachUserActions(player,actions);cosmetics=new Cosmetics(player);cosmetics.set(wallet.profile.equipped);player.root.rotation.y=Math.PI/2;
  function spawnEnemy(x,z,type,encounter,scaling){
   const base=enemyTypes[type],spec={...base,health:Math.round(base.health*scaling.health),damage:Math.round(base.damage*scaling.damage),speed:base.speed*scaling.speed,windup:base.windup*scaling.windup};const actor=character(enemy.scene,type==='bruiser'?2.2:type==='runner'?1.8:1.95);actor.root.position.set(x,0,z);actor.root.rotation.y=-Math.PI/2;
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.8,.07),new THREE.MeshBasicMaterial({color:spec.color,side:THREE.DoubleSide}));bar.position.y=2.4;actor.root.add(bar);
@@ -128,11 +175,11 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
    enemy.bar.scale.x=Math.max(0,enemy.health/enemy.spec.health);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':enemy.spec.color);pose(enemy,time,moving,(enemy.windup>0||enemy.strike>0)?'jab':null,enemy.strike>0?.25+.75*(1-enemy.strike/.3):enemy.windup>0?.25*(1-enemy.windup/enemy.spec.windup):0);
   }
   for(let i=enemies.length-1;i>=0;i--)if(enemies[i].health<=0&&enemies[i].corpseAge>3){const e=enemies[i];scene.remove(e.root,e.warning);for(const mesh of [e.warning,e.bar,e.badge]){mesh.geometry.dispose();mesh.material.dispose();}const skeletons=new Set();e.root.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});for(const skeleton of skeletons)skeleton.dispose();enemies.splice(i,1);}
-  street.update(player.x);const collected=street.collect(player);if(collected){const before=state.bottles;state.bottles+=collected;state.score+=collected*10;if(Math.floor(state.bottles/5)>Math.floor(before/5))state.health=Math.min(100,state.health+5);tone(650);toast(`+${collected} бутылка · +${collected*10} очков`);updateHUD();}
+  street.update(player.x);const collected=street.collect(player);if(collected){const before=state.bottles;state.bottles+=collected;wallet.earn(collected*3);state.score+=collected*10;if(Math.floor(state.bottles/5)>Math.floor(before/5))state.health=Math.min(100,state.health+5);tone(650);toast(`+${collected} бутылка · +${collected*10} очков`);updateHUD();}
   const pending=pendingSpawns.map(item=>({encounter:item.arena.id,health:1}));const event=encounters.update(dt,player.x,[...enemies,...pending]);
   if(event?.type==='spawn')for(const foe of event.enemies)pendingSpawns.push({foe,arena:event.arena,wait:foe.delay});
   if(event?.type==='warning')toast(`${event.arena.title} · противники приближаются!`);
-  if(event?.type==='clear'){returnWall=Math.max(returnWall,player.x-.25);state.score+=100*event.arena.number;state.health=Math.min(100,state.health+8);player.stamina=100;toast(`Участок ${event.arena.number} пройден · +8 здоровья`);updateHUD();}
+  if(event?.type==='clear'){returnWall=Math.max(returnWall,player.x-.25);wallet.earn(15);state.score+=100*event.arena.number;state.health=Math.min(100,state.health+8);player.stamina=100;toast(`Участок ${event.arena.number} пройден · +8 здоровья`);updateHUD();}
   $('danger').hidden=!encounters.active;$('danger').textContent=encounters.active?`${encounters.arena.title} · ${encounters.phase==='incoming'?'Новая волна · '+Math.ceil(encounters.delay):'Осталось: '+enemies.filter(e=>e.encounter===encounters.arena.id&&e.health>0).length}`:'';
   $('go').hidden=encounters.goTime<=0||encounters.active;
   $('stamina').value=player.stamina;$('stamina-value').textContent=Math.floor(player.stamina);$('dodge').disabled=player.dodgeCooldown>0||player.stamina<staminaCosts.dodge;
@@ -156,12 +203,14 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
  $('super').classList.toggle('ready',superPower>=100);
  if(time>toastUntil)$('toast').textContent='';
  sprayEffect.update(player,ready&&!state.over&&!cinematic&&player.attack==='spray'&&player.attackTime/attacks.spray.duration>=.2&&player.attackTime/attacks.spray.duration<=.8,time);
+ $('shop-open').disabled=!ready||!!cinematic;
+ cosmetics?.update();
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:rawDt,width:innerWidth,height:innerHeight});
  sun.position.x=targetX-4;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<650?53:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
