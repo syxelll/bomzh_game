@@ -4,7 +4,7 @@ const targetAreas=process.argv.includes('--first-area')?1:testSuper?2:4;
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1000,height:700},deviceScaleFactor:.65}),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready&&window.gameDebug().frames>5,null,{timeout:60000});
+ await page.goto(process.env.GAME_URL??'http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready&&window.gameDebug().frames>5,null,{timeout:60000});
  const held=new Set();async function movement(wanted=[]){for(const key of [...held])if(!wanted.includes(key)){await page.keyboard.up(key);held.delete(key);}for(const key of wanted)if(!held.has(key)){await page.keyboard.down(key);held.add(key);}}
  let superSeen=false;
  await page.keyboard.down('a');const startFrame=await page.evaluate(()=>window.gameDebug().frames);await page.waitForFunction(n=>window.gameDebug().frames>n+15,startFrame);await page.keyboard.up('a');assert.equal(await page.evaluate(()=>window.gameDebug().player.x),-8,'start return wall');

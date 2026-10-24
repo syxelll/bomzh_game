@@ -21,7 +21,13 @@ for o in meshes:
  for idx,slot in enumerate(o.material_slots):
   mat=slot.material.copy() if slot.material else bpy.data.materials.new('Teeth')
   mat.use_nodes=True;o.material_slots[idx].material=mat
+  # TexCoord.UV also follows the bake target unless pinned explicitly.
   for node in list(mat.node_tree.nodes):
+   if node.type=='TEX_COORD':
+    for link in list(node.outputs['UV'].links):
+     uv=mat.node_tree.nodes.new('ShaderNodeUVMap');uv.uv_map=source_uv.name
+     mat.node_tree.links.new(uv.outputs['UV'],link.to_socket)
+   if node.type=='NORMAL_MAP' and not node.uv_map:node.uv_map=source_uv.name
    if node.type=='TEX_IMAGE' and not node.inputs['Vector'].is_linked:
     uv=mat.node_tree.nodes.new('ShaderNodeUVMap');uv.uv_map=source_uv.name
     mat.node_tree.links.new(uv.outputs['UV'],node.inputs['Vector'])
@@ -29,7 +35,7 @@ for o in meshes:
  bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT');bpy.ops.uv.smart_project(island_margin=0.025);bpy.ops.object.mode_set(mode='OBJECT')
  # Unconnected procedural coordinates still read the source UV map during bake.
  source_uv.active_render=True
- size=1024 if o.name=='dead' else 512
+ size=1024 if o.name in {'dead','shtani'} else 512
  baked={}
  for kind in ['DIFFUSE','ROUGHNESS','NORMAL']:
   image=bpy.data.images.new(name+'_'+o.name+'_'+kind,width=size,height=size,alpha=False)

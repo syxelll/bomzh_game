@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {applyUserAction,applyReferenceHands} from './user-actions.js';
+import {prepareGrounding,groundPose} from './grounding.js';
 import {blendUserTransition,updateRigidAttachments} from './pose-transitions.js';
 
 const smooth = t => {t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
@@ -62,11 +63,12 @@ export function prepareAnimator(actor){
  actor.posedWorld=new Map();
  const skeletons=new Set();actor.visual.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});
  for(const skeleton of skeletons){const offset=new THREE.Matrix4();skeleton.update=function(){for(let i=0;i<this.bones.length;i++){const world=actor.posedWorld.get(this.bones[i])??this.bones[i].matrixWorld;offset.multiplyMatrices(world,this.boneInverses[i]).toArray(this.boneMatrices,i*16);}if(this.boneTexture)this.boneTexture.needsUpdate=true;};}
- actor.animationScratch={desired:new THREE.Matrix4()};
+ actor.animationScratch={desired:new THREE.Matrix4()};prepareGrounding(actor);
 }
 export function pose(actor,time,walk,kind,progress){
- const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
- const p=sampleMotion(time,walk,kind,progress,actor.combo??1);
+ const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);groundPose(actor);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const motionTime=walk&&Number.isFinite(actor.walkDistance)?actor.walkDistance/(actor.walkStride??(actor.height??1.85)*.65)*(2*Math.PI/9):time;
+ const p=sampleMotion(motionTime,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
  actor.visual.position.y=actor.baseVisualY+p.drop;
  actor.root.updateMatrixWorld(true);
@@ -92,6 +94,6 @@ export function pose(actor,time,walk,kind,progress){
  for(const b of actor.bind){desired.copy(actor.visual.matrixWorld).multiply(transforms[b.group==='body'?'body':b.group+b.side]).multiply(b.curledMatrix);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(desired);}
 
  applyReferenceHands(actor);
- blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));updateRigidAttachments(actor);
+ blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor);updateRigidAttachments(actor);
  return p;
 }
