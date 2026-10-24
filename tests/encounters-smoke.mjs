@@ -1,5 +1,5 @@
 import {chromium} from '@playwright/test';import assert from 'node:assert/strict';
-const testSuper=process.argv.includes('--super'),mobile=process.argv.includes('--mobile');
+const testShake=process.argv.includes('--shake');const testSuper=process.argv.includes('--super'),mobile=process.argv.includes('--mobile');
 const targetAreas=process.argv.includes('--first-area')?1:testSuper?2:4;
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
@@ -10,9 +10,9 @@ try{
  await page.keyboard.down('a');const startFrame=await page.evaluate(()=>window.gameDebug().frames);await page.waitForFunction(n=>window.gameDebug().frames>n+15,startFrame);await page.keyboard.up('a');assert.equal(await page.evaluate(()=>window.gameDebug().player.x),-8,'start return wall');
  await page.keyboard.down('s');await page.waitForFunction(()=>Math.abs(window.gameDebug().player.heading)<.15);await page.keyboard.up('s');
  assert.ok(await page.evaluate(()=>window.gameDebug().player.z>.5),'down movement faces camera');
- let fall=false,completed=0,lastWave='',comboSeen=false;
+ let maxShake=0;let fall=false,completed=0,lastWave='',comboSeen=false;
  for(let step=0;step<1600;step++){
-  const s=await page.evaluate(()=>window.gameDebug());assert.equal(s.over,false,'player survived: '+JSON.stringify(s));
+  const s=await page.evaluate(()=>window.gameDebug());maxShake=Math.max(maxShake,s.cameraShake?.strength??0);assert.equal(s.over,false,'player survived: '+JSON.stringify(s));
   assert.ok(s.player.x>=s.encounter.bounds[0]-.01&&s.player.x<=s.encounter.bounds[1]+.01,'arena boundary');
   if(s.encounter.index>completed){completed=s.encounter.index;console.log('Cleared',completed,'health',s.health);await page.screenshot({path:`/workspace/encounter-clear-${completed}.png`});if(completed===targetAreas)break;}
   const wave=`${s.encounter.index}:${s.encounter.wave}:${s.encounter.phase}`;if(wave!==lastWave){console.log('Phase',wave);lastWave=wave;}
@@ -47,6 +47,6 @@ try{
   }
   await page.waitForFunction(frame=>window.gameDebug().frames>=frame+2,s.frames,{timeout:60000});
  }
- await movement(['a']);await page.waitForFunction(()=>window.gameDebug().player.x<=window.gameDebug().returnWall+.005,null,{timeout:60000});await movement([]);const result=await page.evaluate(()=>window.gameDebug());assert.equal(completed,targetAreas,'all selected areas clear: '+JSON.stringify(result));assert.ok(fall||superSeen,'knockdown or finisher rendered');if(testSuper)assert.ok(superSeen,'super used');assert.ok(result.returnWall>-8,'checkpoint wall advances');assert.ok(Math.abs(result.player.x-result.returnWall)<.01,'cannot cross checkpoint wall');assert.ok(comboSeen,'combo followed through');if(targetAreas>=3)assert.ok(result.bruisersDefeated>=1);assert.equal(result.worldChunks,5);assert.ok(result.enemies.length<=8);assert.ok(result.spawnAudit.length>0);for(const audit of result.spawnAudit)assert.ok(audit.side<0?audit.projected[1]<-1.15:audit.projected[0]>1.15,'offscreen creation');assert.equal(result.best.levels,targetAreas);assert.deepEqual(result.authoredActions.sort(),['idle','jab_01','kick','walk']);assert.deepEqual(errors,[]);
+ await movement(['a']);await page.waitForFunction(()=>window.gameDebug().player.x<=window.gameDebug().returnWall+.005,null,{timeout:60000});await movement([]);const result=await page.evaluate(()=>window.gameDebug());assert.equal(completed,targetAreas,'all selected areas clear: '+JSON.stringify(result));assert.ok(fall||superSeen,'knockdown or finisher rendered');if(testSuper)assert.ok(superSeen,'super used');assert.ok(result.returnWall>-8,'checkpoint wall advances');assert.ok(Math.abs(result.player.x-result.returnWall)<.01,'cannot cross checkpoint wall');assert.ok(comboSeen,'combo followed through');if(targetAreas>=3)assert.ok(result.bruisersDefeated>=1);assert.equal(result.worldChunks,5);assert.ok(result.enemies.length<=8);assert.ok(result.spawnAudit.length>0);for(const audit of result.spawnAudit)assert.ok(audit.side<0?audit.projected[1]<-1.15:audit.projected[0]>1.15,'offscreen creation');assert.equal(result.best.levels,targetAreas);assert.deepEqual(result.authoredActions.sort(),['idle','jab_01','kick','walk']);assert.deepEqual(errors,[]);if(testShake)assert.ok(maxShake>.02,'combat camera impulse observed');
  console.log('Endless stages, offscreen entrants, authored actions, combos and bounded world OK',JSON.stringify(result));await page.reload();await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});assert.equal(await page.evaluate(()=>window.gameDebug().best.levels),targetAreas);assert.equal(await page.evaluate(()=>window.gameDebug().encounter.index),0);console.log('Record survived reload; new run reset');
 }finally{await browser.close();}
