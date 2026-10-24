@@ -18,3 +18,13 @@ test('foot IK plants through the knee without moving the hip or changing leg len
  const actor={root:new T.Group(),posedWorld:new Map([[hip,matrix(h)],[knee,matrix(k)],[ankle,matrix(a)]]),ikLegs:new Map([['l',{hip,knee,ankle,groups:{upper:[hip],lower:[knee],foot:[ankle]}}]])};
  assert.equal(solveFoot(actor,'l',.05),true);const point=b=>new T.Vector3().setFromMatrixPosition(actor.posedWorld.get(b));assert.ok(point(hip).distanceTo(h)<1e-8);assert.ok(Math.abs(point(ankle).y-.15)<1e-8);assert.ok(Math.abs(point(hip).distanceTo(point(knee))-h.distanceTo(k))<1e-8);assert.ok(Math.abs(point(knee).distanceTo(point(ankle))-k.distanceTo(a))<1e-8);
 });
+
+test('planting nearly straight legs never amplifies inward knee noise into crossed legs',async()=>{
+ const {solveFoot}=await import('../src/foot-ik.js');
+ for(const sign of [-1,1])for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]){
+  const root=new T.Group();root.rotation.y=yaw;root.updateMatrixWorld(true);
+  const hip=new T.Bone(),knee=new T.Bone(),ankle=new T.Bone(),points=[new T.Vector3(sign*.14,1,0),new T.Vector3(sign*.12,.55,.004),new T.Vector3(sign*.14,.1,0)],matrix=p=>new T.Matrix4().makeTranslation(p.x,p.y,p.z).premultiply(root.matrixWorld);
+  const actor={root,posedWorld:new Map([[hip,matrix(points[0])],[knee,matrix(points[1])],[ankle,matrix(points[2])]]),ikLegs:new Map([['l',{hip,knee,ankle,groups:{upper:[hip],lower:[knee],foot:[ankle]}}]])};
+  assert.equal(solveFoot(actor,'l',.05),true);const localKnee=new T.Vector3().setFromMatrixPosition(actor.posedWorld.get(knee)).applyMatrix4(root.matrixWorld.clone().invert());assert.ok(localKnee.x*sign>=.12,'knee cannot collapse toward the opposite leg');assert.ok(localKnee.z>0,'knee bends forward');
+ }
+});

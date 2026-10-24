@@ -16,9 +16,12 @@ export function solveFoot(actor,side,dy){
  const vertical=target.y-h.y;if(Math.abs(vertical)>reach)return false;
  const horizontal=new THREE.Vector2(target.x-h.x,target.z-h.z),allowed=Math.sqrt(Math.max(0,reach*reach-vertical*vertical));if(horizontal.length()>allowed){horizontal.setLength(allowed);target.x=h.x+horizontal.x;target.z=h.z+horizontal.y;}
  const direction=target.clone().sub(h),distance=direction.length();direction.normalize();
- let pole=k.clone().sub(h);pole.addScaledVector(direction,-pole.dot(direction));
- const forward=new THREE.Vector3(0,0,1).applyQuaternion(actor.root.quaternion);forward.addScaledVector(direction,-forward.dot(direction)).normalize();
- if(pole.length()<.001||pole.clone().normalize().dot(forward)<.1)pole.copy(forward);else pole.normalize();
+ // Near a straight leg, the authored knee projection is tiny and its lateral
+ // noise has no reliable direction. Amplifying it makes both knees turn inward.
+ // Use the character's sagittal plane consistently, including when turning.
+ const pole=new THREE.Vector3(0,0,1).applyQuaternion(actor.root.quaternion);
+ pole.addScaledVector(direction,-pole.dot(direction));
+ if(pole.lengthSq()<1e-8)return false;pole.normalize();
  const along=(upper*upper-lower*lower+distance*distance)/(2*distance),bend=Math.sqrt(Math.max(0,upper*upper-along*along)),newKnee=h.clone().addScaledVector(direction,along).addScaledVector(pole,bend);
  const transforms={upper:mapSegment(h,k,h,newKnee),lower:mapSegment(k,a,newKnee,target),foot:new THREE.Matrix4().makeTranslation(target.x-a.x,target.y-a.y,target.z-a.z)};
  for(const group of ['upper','lower','foot'])for(const bone of leg.groups[group])if(poses.has(bone))poses.get(bone).premultiply(transforms[group]);
