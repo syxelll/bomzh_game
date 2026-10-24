@@ -1,0 +1,18 @@
+import {chromium} from '@playwright/test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{for(const mobile of [false,true]){
+ const context=await browser.newContext({viewport:mobile?{width:390,height:844}:{width:1100,height:750},isMobile:mobile,hasTouch:mobile,acceptDownloads:true,ignoreHTTPSErrors:true});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const url=new URL(process.env.GAME_URL??'http://127.0.0.1:5180/?quality=low');url.searchParams.delete('editor');await page.goto(url.href);await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:90000});await page.click('#pause');assert.equal(await page.locator('#lighting-open').isVisible(),false);url.searchParams.set('editor','lighting');await page.goto(url.href);await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:90000});
+ async function open(){if(await page.locator('#lighting-panel').isVisible())return;await page.click('#pause');await page.click('#lighting-open');await page.locator('#lighting-panel').waitFor({state:'visible'});}
+ await open();assert.equal(await page.evaluate(()=>gameDebug().paused),true);
+ await page.selectOption('#lighting-preset','sunset');assert.equal(await page.evaluate(()=>gameDebug().lighting.sunIntensity),3.2);
+ await page.locator('#light-exposure').focus();await page.keyboard.press('End');assert.equal(await page.evaluate(()=>gameDebug().lighting.exposure),2.5);
+ await page.click('#lighting-save');assert.match(await page.locator('#lighting-status').textContent(),/Сохранено/);
+ const promise=page.waitForEvent('download');await page.click('#lighting-export');const download=await promise,data=JSON.parse(await fs.readFile(await download.path(),'utf8'));assert.equal(data.settings.exposure,2.5);
+ await page.click('#lighting-collapse');assert.equal(await page.locator('#lighting-body').isVisible(),false);await page.click('#lighting-collapse');
+ const rectangle=await page.locator('#lighting-panel').boundingBox();assert.ok(rectangle.x>=0&&rectangle.x+rectangle.width<=(mobile?390:1100));
+ await page.locator('#lighting-import').setInputFiles({name:'light.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:1,settings:{exposure:1.4,azimuth:40}}))});await page.waitForFunction(()=>gameDebug().lighting.exposure===1.4);
+ await page.locator('#light-exposure').focus();await page.keyboard.press('Escape');assert.equal(await page.locator('#lighting-panel').isVisible(),false);assert.equal(await page.evaluate(()=>gameDebug().paused),true);await page.click('#resume');assert.equal(await page.evaluate(()=>gameDebug().paused),false);
+ await page.reload();await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:90000});assert.equal(await page.evaluate(()=>gameDebug().lighting.exposure),2.5);
+ await open();await page.click('#lighting-reset');assert.equal(await page.evaluate(()=>gameDebug().lighting.exposure),1.08);await page.click('#lighting-save');await page.screenshot({path:'/workspace/lighting-'+(mobile?'mobile':'desktop')+'.png'});assert.deepEqual(errors,[]);console.log(mobile?'Mobile':'Desktop','live lighting, presets, save/reload, import/export, collapse and pause passed');await context.close();
+}}finally{await browser.close();}

@@ -1,3 +1,5 @@
+import {LightingSettings} from './lighting.js';
+import {mountLightingPanel} from './lighting-panel.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -21,6 +23,8 @@ import {laneBounds,offscreenSpawn} from './spawning.js';
 import { pose, prepareAnimator, sampleMotion } from './animation.js';
 
 const $ = id => document.getElementById(id);
+const lightingEditor=new URLSearchParams(location.search).get('editor')==='lighting';
+$('lighting-open').hidden=!lightingEditor;
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#92968d'); scene.fog = new THREE.Fog('#92968d', 24, 62);
 const lowQuality = innerWidth < 650 || new URLSearchParams(location.search).get('quality') === 'low';
 const renderer = new THREE.WebGLRenderer({ canvas: $('game'), antialias: !lowQuality, powerPreference:'high-performance' });
@@ -31,9 +35,10 @@ const camera = new THREE.PerspectiveCamera(42, 1, .1, 100);
 const cameraRig=new GameCamera(camera,{reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
 try{const preference=localStorage.getItem('bomzh:camera-shake:v1');if(preference==='on'||preference==='off')cameraRig.setShakeEnabled(preference==='on');}catch{}
 $('camera-shake').checked=cameraRig.isShakeEnabled();$('camera-shake').onchange=e=>{cameraRig.setShakeEnabled(e.target.checked);try{localStorage.setItem('bomzh:camera-shake:v1',e.target.checked?'on':'off');}catch{}};
-scene.add(new THREE.HemisphereLight('#e1e4e2', '#696a67', 2.6));
+const ambient=new THREE.HemisphereLight('#e1e4e2', '#696a67', 2.6);scene.add(ambient);
 const sun = new THREE.DirectionalLight('#f1e8df', 2.2); sun.position.set(-8,14,6); sun.castShadow=true;
 sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;sun.shadow.normalBias=.025;sun.shadow.radius=3;scene.add(sun,sun.target);
+const lighting=new LightingSettings({scene,renderer,sun,ambient,lowQuality});
 const mat=color=>new THREE.MeshStandardMaterial({color,roughness:.92});
 const contactShadows=new ContactShadows(scene);
 const sprayEffect=new SprayEffect(scene);
@@ -75,7 +80,7 @@ function renderShop(){
   card.append(button);container.append(card);
  }
 }
-function openShop(){if(!ready||cinematic||rewardBusy||shopOpen)return;shopWasPaused=paused;shopOpen=true;paused=true;keys.clear();$('pause-menu').hidden=true;$('shop').hidden=false;$('shop-status').textContent='';updateWalletUI();renderShop();$('shop-close').focus();}
+function openShop(){if(!ready||cinematic||rewardBusy||shopOpen||lightingPanel.isOpen())return;shopWasPaused=paused;shopOpen=true;paused=true;keys.clear();$('pause-menu').hidden=true;$('shop').hidden=false;$('shop-status').textContent='';updateWalletUI();renderShop();$('shop-close').focus();}
 function closeShop(){shopOpen=false;paused=shopWasPaused;$('shop').hidden=true;$('pause-menu').hidden=!paused;if(!state.over)$('shop-open').focus();}
 $('shop-open').onclick=openShop;$('ending-shop').onclick=openShop;$('shop-close').onclick=closeShop;
 async function claimBonus(kind){
@@ -94,7 +99,8 @@ async function claimBonus(kind){
 }
 $('revive').onclick=()=>claimBonus('revive');$('double-coins').onclick=()=>claimBonus('double');
 $('restart').onclick=()=>location.reload();
-function togglePause(){if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
+function togglePause(){if(lightingPanel.isOpen()){lightingPanel.hide();return;}if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
+const lightingPanel=mountLightingPanel(lighting,{open:()=>{if(!lightingEditor||!paused||shopOpen)return false;keys.clear();$('pause-menu').hidden=true;},close:()=>{$('pause-menu').hidden=false;$('lighting-open').focus();}});
 $('pause').onclick=togglePause;$('resume').onclick=togglePause;
 function attack(kind){
  if(kind==='kick')return;
@@ -143,7 +149,7 @@ try{
   enemies.push({...actor,x,z,type,spec,encounter,entering:true,corpseAge:0,down:0,stun:0,knockback:0,health:spec.health,windup:0,cooldown:1,bar,warning,badge,flash:0,aimX:-1,aimZ:0});
  }
  spawnEncounterEnemy=spawnEnemy;
- ready=true;initTelegram();$('loading').style.display='none';updateHUD();toast('Иди вправо. Пройди как можно больше участков!');
+ ready=true;initTelegram();$('loading').style.display='none';updateHUD();if(lightingEditor){cameraRig.update({player,enemies,time:0,dt:3,width:innerWidth,height:innerHeight});togglePause();$('lighting-open').click();}else toast('Иди вправо. Пройди как можно больше участков!');
 }catch(error){console.error(error);$('load-status').textContent='Не удалось загрузить модели. Проверь соединение и обнови страницу.';}
 let hitStop=0;
 const impacts=[];
@@ -215,11 +221,11 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
  $('shop-open').disabled=!ready||!!cinematic;
  cosmetics?.update();if(ready){contactShadows.update(player);for(const e of enemies)contactShadows.update(e);}
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:paused?0:rawDt,width:innerWidth,height:innerHeight});
- sun.position.x=targetX-8;sun.target.position.set(targetX,0,0);renderer.render(scene,camera);
+ lighting.follow(targetX);renderer.render(scene,camera);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.fov=w<650?53:42;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-7.3,6,9);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,lighting:{...lighting.value},cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
