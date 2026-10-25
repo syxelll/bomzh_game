@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 export function focusDepth(camera,point){camera.updateMatrixWorld(true);return Math.max(camera.near,-point.clone().applyMatrix4(camera.matrixWorldInverse).z);}
 export class DepthOfField{
- constructor(renderer,{lowQuality=false,enabled=true}={}){
+ constructor(renderer,{lowQuality=false,enabled=true,samples=2}={}){
   this.renderer=renderer;this.enabled=enabled;this.focus=null;this.maxBlur=lowQuality?1.8:2.5;this.band=1.2;
   const colorType=renderer.extensions?.has('EXT_color_buffer_float')?THREE.HalfFloatType:THREE.UnsignedByteType;
-  this.target=new THREE.WebGLRenderTarget(1,1,{type:colorType,depthBuffer:true,stencilBuffer:false});this.target.depthTexture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);this.target.samples=lowQuality?0:Math.min(2,renderer.capabilities.maxSamples);
+  this.target=new THREE.WebGLRenderTarget(1,1,{type:colorType,depthBuffer:true,stencilBuffer:false});this.target.depthTexture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);this.target.samples=lowQuality?0:Math.min(samples,renderer.capabilities.maxSamples);
   this.material=new THREE.ShaderMaterial({depthTest:false,depthWrite:false,uniforms:{colorTexture:{value:this.target.texture},depthTexture:{value:this.target.depthTexture},pixel:{value:new THREE.Vector2()},near:{value:.1},far:{value:100},focus:{value:6},band:{value:this.band},radius:{value:this.maxBlur}},defines:{DOF_SAMPLES:lowQuality?8:12},vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`,fragmentShader:`
    #include <common>
    #include <packing>

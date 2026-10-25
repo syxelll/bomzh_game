@@ -1,3 +1,4 @@
+import {graphicsQuality} from './graphics-quality.js';
 import {DepthOfField} from './depth-of-field.js';
 import {extendFrontPaving,setupStreetReflections} from './street-environment.js';
 import {LightingSettings} from './lighting.js';
@@ -28,20 +29,21 @@ const $ = id => document.getElementById(id);
 const lightingEditor=new URLSearchParams(location.search).get('editor')==='lighting';
 $('lighting-open').hidden=!lightingEditor;
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#92968d'); scene.fog = new THREE.Fog('#92968d', 24, 62);
-const lowQuality = innerWidth < 650 || new URLSearchParams(location.search).get('quality') === 'low';
+const graphics=graphicsQuality(new URLSearchParams(location.search).get('quality'),innerWidth,devicePixelRatio);
+const lowQuality=graphics.lowQuality;
 const renderer = new THREE.WebGLRenderer({ canvas: $('game'), antialias: !lowQuality, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, lowQuality ? 1 : 1.5)); renderer.shadowMap.enabled = !lowQuality;
+renderer.setPixelRatio(graphics.pixelRatio); renderer.shadowMap.enabled = !lowQuality;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
 const camera = new THREE.PerspectiveCamera(40, 1, .1, 100);
-const dof=new DepthOfField(renderer,{lowQuality,enabled:new URLSearchParams(location.search).get('dof')!=='off'});
+const dof=new DepthOfField(renderer,{lowQuality,samples:graphics.samples,enabled:new URLSearchParams(location.search).get('dof')!=='off'});
 const dofFocus=new THREE.Vector3();
 const cameraRig=new GameCamera(camera,{reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
 try{const preference=localStorage.getItem('bomzh:camera-shake:v1');if(preference==='on'||preference==='off')cameraRig.setShakeEnabled(preference==='on');}catch{}
 $('camera-shake').checked=cameraRig.isShakeEnabled();$('camera-shake').onchange=e=>{cameraRig.setShakeEnabled(e.target.checked);try{localStorage.setItem('bomzh:camera-shake:v1',e.target.checked?'on':'off');}catch{}};
 const ambient=new THREE.HemisphereLight('#e1e4e2', '#696a67', 2.6);scene.add(ambient);
 const sun = new THREE.DirectionalLight('#f1e8df', 2.2); sun.position.set(-8,14,6); sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;sun.shadow.normalBias=.025;sun.shadow.radius=3;scene.add(sun,sun.target);
+sun.shadow.mapSize.set(graphics.shadowSize,graphics.shadowSize); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;sun.shadow.normalBias=.025;sun.shadow.radius=3;scene.add(sun,sun.target);
 const lighting=new LightingSettings({scene,renderer,sun,ambient,lowQuality});
 const mat=color=>new THREE.MeshStandardMaterial({color,roughness:.92});
 const contactShadows=new ContactShadows(scene);
@@ -231,7 +233,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);dof.resize(w,h);camera.aspect=w/h;camera.fov=w<650?53:40;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-6.55,1.8,6.2);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,depthOfField:{enabled:dof.enabled,focus:dof.focus,maxBlur:dof.maxBlur},lighting:{...lighting.value},environment:street.template?'authored':'procedural',cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,graphics:{mode:graphics.mode,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height,samples:dof.target.samples},depthOfField:{enabled:dof.enabled,focus:dof.focus,maxBlur:dof.maxBlur},lighting:{...lighting.value},environment:street.template?'authored':'procedural',cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}
