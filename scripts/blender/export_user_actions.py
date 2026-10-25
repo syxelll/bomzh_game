@@ -46,10 +46,10 @@ if rig.animation_data:
  for track in rig.animation_data.nla_tracks:track.mute=True
 names=sorted(n for n in weighted if n in baseline and n in rig.pose.bones)
 result={'version':1,'sourceSha256':hashlib.sha256(pathlib.Path(args.source).read_bytes()).hexdigest(),'fps':bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,'bones':names,'clips':{}}
-aliases={'AW • rig • Walk.001':'walk','mocha':'spray','rigaet':'burp'}
+aliases={'AW • rig • Walk.001':'walk','mocha':'spray','rigaet':'burp','rivok':'dodge'}
 for action in list(bpy.data.actions):
  clip_name=aliases.get(action.name,action.name)
- if clip_name not in {'idle','jab_01','kick','walk','spray','burp'} and not clip_name.endswith('_combo'):continue
+ if clip_name not in {'idle','jab_01','kick','walk','spray','burp','dodge'} and not clip_name.endswith('_combo'):continue
  rig.animation_data.action=None
  for bone in rig.pose.bones:
   if bone.name in bases:bone.matrix_basis=bases[bone.name]
@@ -62,7 +62,7 @@ for action in list(bpy.data.actions):
   root_position=(C@evaluated.matrix_world@evaluated.pose.bones['root.x'].matrix).translation
   if anchor is None:anchor=root_position.copy()
   shift=root_position-anchor
-  motion=Matrix.Translation((-shift.x,0,-shift.z)) if clip_name in {'walk','idle'} else Matrix.Identity(4)
+  motion=Matrix.Translation((-shift.x,0,-shift.z)) if clip_name in {'walk','idle','dodge'} else Matrix.Identity(4)
   for name in names:
    delta=motion@C@evaluated.matrix_world@evaluated.pose.bones[name].matrix@baseline[name].inverted()@invC
    values.extend(round(delta[row][col],6) for col in range(4) for row in range(4))

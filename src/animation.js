@@ -68,7 +68,7 @@ export function prepareAnimator(actor){
  actor.animationScratch={desired:new THREE.Matrix4()};prepareGrounding(actor);
 }
 export function pose(actor,time,walk,kind,progress){
- const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);groundPose(actor,0,{kind,time});updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const authored=applyUserAction(actor,time,walk,kind,progress);if(authored){blendUserTransition(actor,time,authored);groundPose(actor,0,{kind:authored==='dodge'?'dodge':kind,time});updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const motionTime=walk&&Number.isFinite(actor.walkDistance)?actor.walkDistance/(actor.walkStride??(actor.height??1.85)*.65)*(2*Math.PI/9):time;
  const p=sampleMotion(motionTime,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
