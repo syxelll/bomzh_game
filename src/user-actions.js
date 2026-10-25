@@ -25,7 +25,7 @@ function sample(actor,name,progress,time,offset,out){
 
 export function applyUserAction(actor,time,walk,kind,progress){
  if(!actor.userActions||actor.hurt>0||actor.dodge>0)return false;
- const name=kind==='jab'?(actor.attackSpec?.clip??comboClips(actor.userActions)[Math.max(0,(actor.combo??1)-1)%Math.max(1,comboClips(actor.userActions).length)]??'jab_01'):kind==='kick'?'kick':kind==='spray'?'spray':!kind?(walk?(actor.userActions.clips.walk?'walk':null):'idle'):null;if(!name||!actor.userActions.clips[name])return false;
+ const name=kind==='jab'?(actor.attackSpec?.clip??comboClips(actor.userActions)[Math.max(0,(actor.combo??1)-1)%Math.max(1,comboClips(actor.userActions).length)]??'jab_01'):kind==='kick'?'kick':kind==='spray'?'spray':kind==='burp'?'burp':!kind?(walk?(actor.userActions.clips.walk?'walk':null):'idle'):null;if(!name||!actor.userActions.clips[name])return false;
  actor.visual.position.y=actor.baseVisualY;actor.root.updateMatrixWorld(true);
  const returning=kind==='jab'&&!name.endsWith('_combo')&&progress>.76;
  const sampleName=returning?'idle':name,clipProgress=kind==='jab'&&!name.endsWith('_combo')?Math.min(1,progress/.7):progress;
@@ -33,7 +33,7 @@ export function applyUserAction(actor,time,walk,kind,progress){
 
  for(const b of actor.bind){delta(b.name,tempA);let world=actor.posedWorld.get(b.bone);if(!world){world=new THREE.Matrix4();actor.posedWorld.set(b.bone,world);}world.copy(actor.visual.matrixWorld).multiply(tempA).multiply(b.matrix);}
 
- if(name.endsWith('_combo')||name==='spray')applyReferenceHands(actor);
+ if(name.endsWith('_combo')||name==='spray'||name==='burp')applyReferenceHands(actor);
  return returning?'jab:return':kind==='jab'?name+':'+(actor.attackSerial??0):name;
 }
 // Reuse the authored hand shape for procedural moves instead of curling weighted

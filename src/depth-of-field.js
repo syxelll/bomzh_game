@@ -36,7 +36,7 @@ export class DepthOfField{
    }`});
   this.quad=new FullScreenQuad(this.material);
  }
- resize(width,height){const ratio=this.renderer.getPixelRatio(),w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));this.target.setSize(w,h);this.material.uniforms.pixel.value.set(1/w,1/h);this.material.uniforms.radius.value=this.maxBlur*ratio;}
+ resize(width,height){if(!this.enabled)return;const ratio=this.renderer.getPixelRatio(),w=Math.max(1,Math.floor(width*ratio)),h=Math.max(1,Math.floor(height*ratio));this.target.setSize(w,h);this.material.uniforms.pixel.value.set(1/w,1/h);this.material.uniforms.radius.value=this.maxBlur*ratio;}
  render(scene,camera,point,dt){
   const desired=focusDepth(camera,point);this.focus=this.focus===null?desired:THREE.MathUtils.lerp(this.focus,desired,1-Math.exp(-Math.max(0,dt)*8));
   if(!this.enabled){this.renderer.render(scene,camera);return;}

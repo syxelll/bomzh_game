@@ -24,6 +24,8 @@ export function sampleMotion(time,walk,kind,progress=0,combo=1){
  const active=combo%2===0?'right':'left';let frames;
  if(kind==='finisher'){
   frames=[[0,key()],[.22,key({right:[-.15,-.7,.18,.3],left:[-.6,-1.3,-.18,.25],twist:-.3,drop:-.08})],[.37,key({right:[.15,-1.5,.2,.45],left:[-.8,-1.4,-.25,.3],twist:-.55,lean:.18,drop:-.16})],[1.3/2.8,key({right:[-1.8,-.15,.15,.12],left:[-.65,-1.2,-.2,.2],twist:.55,lean:-.12,drop:.06})],[.58,key({right:[-1.75,-.2,.15,.12],twist:.4,lean:-.1,drop:.04})],[.86,key()],[1,key()]];
+ }else if(kind==='burp'){
+  frames=[[0,key()],[.24,key({lean:-.18,drop:-.025})],[.4,key({lean:.38,twist:.1,left:[-.1,-.8,-.06,.08],right:[-.1,-.8,.06,.08]})],[.68,key({lean:.18})],[1,key()]];
  }else if(kind==='jab'){
   frames=[[0,key()],[.25,key({[active]:[-.15,-1.9,0,.12],twist:-.25,drop:-.025})],[.43,key({[active]:[-1.65,-.08,-.1,.1],twist:.3,lean:.12})],[.58,key({[active]:[-1.55,-.12,-.1,.1],twist:.23,lean:.1})],[1,key()]];
  }else if(kind==='kick'){

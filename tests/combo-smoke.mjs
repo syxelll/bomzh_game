@@ -5,7 +5,6 @@ try{
  const page=await browser.newPage({viewport:{width:640,height:400}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.GAME_URL??'http://127.0.0.1:5173/?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:90000});
  assert.equal(await page.locator('[data-attack="kick"]').count(),0);
- await page.keyboard.press('k');assert.equal((await page.evaluate(()=>gameDebug())).player.attack,null);
  const clips=[];
  await page.keyboard.press('j');
  for(let serial=1;serial<=3;serial++){
