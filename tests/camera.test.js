@@ -21,3 +21,12 @@ test('cinematic impacts shake too, pause freezes them and the setting disables t
  assert.equal(rig.shake,strength);assert.ok(camera.position.distanceTo(position)<1e-10);assert.ok(camera.quaternion.angleTo(rotation)<1e-6);
  rig.setShakeEnabled(false);rig.impact(1);rig.cinematic(p,target,1.3,0,1365,768);assert.equal(rig.shake,0);assert.ok(camera.position.distanceTo(rig.framingCamera.position)<1e-10);
 });
+
+test('closer eye-level framing retains the full hero across the walk lane and viewports',()=>{
+ for(const [width,height] of [[390,844],[1365,768],[2560,720],[844,390]])for(const fighting of [false,true])for(const z of [-2,0,2.1]){
+  const arena=fighting?createEncounter(0):null,player={x:arena?.center??0,z,facing:1},camera=new THREE.PerspectiveCamera(40,width/height,.1,100),rig=new GameCamera(camera);
+  for(let i=0;i<240;i++)rig.update({player,arena,dt:1/60,width,height});camera.updateMatrixWorld(true);
+  const pitch=Math.atan2(camera.position.y-rig.focus.y,Math.hypot(camera.position.x-rig.focus.x,camera.position.z-rig.focus.z));assert.ok(pitch<.15);assert.ok(rig.distance<(width<650?8:6.3));
+  for(const y of [0,1.85]){const p=new THREE.Vector3(player.x,y,z).project(camera);assert.ok(Math.abs(p.x)<.95&&Math.abs(p.y)<.95,JSON.stringify({width,height,z,fighting,p}));}
+ }
+});
