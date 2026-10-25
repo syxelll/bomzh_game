@@ -4,7 +4,18 @@ export class Street{
  constructor(scene,{textured=true,editable=false}={}){this.editable=editable;this.scene=scene;this.chunks=new Map();this.unit=new THREE.BoxGeometry(1,1,1);this.plane=new THREE.PlaneGeometry(1,1);this.body=new THREE.CylinderGeometry(.085,.09,.3,8);this.neck=new THREE.CylinderGeometry(.035,.055,.14,8);this.ring=new THREE.TorusGeometry(.17,.015,5,20);this.materials=new Map();this.geometries=new Map();this.textures=textured?streetTextures():{};this.chunkIndex=null;}
  material(color,kind='plain'){const key=kind+color;if(!this.materials.has(key)){const t=this.textures,m=new THREE.MeshStandardMaterial({color,roughness:kind==='metal'?.76:.96});if(kind==='brick'){m.map=t.brick;m.bumpMap=t.brickBump;m.bumpScale=.028;}if(['asphalt','concrete','rust'].includes(kind)){m.map=t[kind];m.bumpMap=t[kind];m.bumpScale=kind==='asphalt'?.025:.012;}this.materials.set(key,m);}return this.materials.get(key);}
  metricBox(w,h,d,tile){const key=[w,h,d,tile].join(':');if(!this.geometries.has(key)){const g=new THREE.BoxGeometry(w,h,d),p=g.attributes.position,n=g.attributes.normal,uv=g.attributes.uv;for(let i=0;i<p.count;i++){if(Math.abs(n.getY(i))>.5)uv.setXY(i,p.getX(i)/tile,p.getZ(i)/tile);else uv.setXY(i,(Math.abs(n.getX(i))>.5?p.getZ(i):p.getX(i))/tile,p.getY(i)/tile);}this.geometries.set(key,g);}return this.geometries.get(key);}
+ setEnvironment(template){
+  for(const chunk of this.chunks.values()){this.scene.remove(chunk.group);for(const resource of chunk.local)resource.dispose();}
+  this.chunks.clear();this.template=template;this.chunkIndex=null;
+  template.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+ }
+ addBottles(group,index){
+  const bottles=[];
+  for(let i=0;i<5;i++){const object=new THREE.Group(),body=new THREE.Mesh(this.body,this.material('#638b4c')),neck=new THREE.Mesh(this.neck,this.material('#638b4c')),ring=new THREE.Mesh(this.ring,this.material('#e7c25c'));body.position.y=.2;neck.position.y=.41;ring.rotation.x=-Math.PI/2;ring.position.y=.04;object.add(body,neck,ring);if(this.editable)for(const m of [body,neck,ring])m.userData.module={kind:'pickup',id:String(i)};const x=2+i*4.7,z=Math.sin(index*3+i*2.1)*1.5;object.position.set(x,0,z);group.add(object);bottles.push({mesh:object,x:index*26+x,z,taken:false});}
+  return bottles;
+ }
  makeChunk(index){
+  if(this.template){const group=new THREE.Group();group.position.x=index*26;group.add(this.template.clone(true));const bottles=this.addBottles(group,index);this.scene.add(group);return {group,bottles,local:[]};}
   const group=new THREE.Group(),bottles=[],local=[],staticMeshes=[];group.position.x=index*26;
   let module={kind:'road',id:'road'};const mark=(kind,id)=>module={kind,id:String(id)};
   const box=(w,h,d,color,x,y,z,kind='plain')=>{const textured=['brick','asphalt','concrete','rust'].includes(kind),geometry=textured?this.metricBox(w,h,d,kind==='asphalt'?4:2):this.unit,m=new THREE.Mesh(geometry,this.material(color,kind));if(!textured)m.scale.set(w,h,d);m.position.set(x,y,z);if(this.editable)m.userData.module=module;staticMeshes.push(m);return m;};
@@ -32,7 +43,7 @@ export class Street{
   // Batch static boxes so the added facade detail stays cheap on phones.
   const batches=new Map();for(const mesh of staticMeshes){const key=mesh.geometry.uuid+mesh.material.uuid;if(!batches.has(key))batches.set(key,[]);batches.get(key).push(mesh);}
   for(const meshes of batches.values()){const first=meshes[0],batch=new THREE.InstancedMesh(first.geometry,first.material,meshes.length);if(this.editable)batch.userData.modules=meshes.map(m=>m.userData.module);for(let i=0;i<meshes.length;i++){meshes[i].updateMatrix();batch.setMatrixAt(i,meshes[i].matrix);}batch.castShadow=true;batch.receiveShadow=true;batch.computeBoundingSphere();group.add(batch);local.push(batch);}
-  for(let i=0;i<5;i++){const object=new THREE.Group(),body=new THREE.Mesh(this.body,this.material('#638b4c')),neck=new THREE.Mesh(this.neck,this.material('#638b4c')),ring=new THREE.Mesh(this.ring,this.material('#e7c25c'));body.position.y=.2;neck.position.y=.41;ring.rotation.x=-Math.PI/2;ring.position.y=.04;object.add(body,neck,ring);if(this.editable)for(const m of [body,neck,ring])m.userData.module={kind:'pickup',id:String(i)};const x=2+i*4.7,z=Math.sin(index*3+i*2.1)*1.5;object.position.set(x,0,z);group.add(object);bottles.push({mesh:object,x:index*26+x,z,taken:false});}
+  bottles.push(...this.addBottles(group,index));
   this.scene.add(group);return {group,bottles,local};
  }
  update(x){const index=Math.floor(x/26);if(index===this.chunkIndex)return;this.chunkIndex=index;for(let i=index-2;i<=index+2;i++)if(!this.chunks.has(i))this.chunks.set(i,this.makeChunk(i));for(const [i,chunk] of this.chunks)if(Math.abs(i-index)>2){this.scene.remove(chunk.group);for(const resource of chunk.local)resource.dispose();this.chunks.delete(i);}}

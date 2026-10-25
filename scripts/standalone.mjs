@@ -3,7 +3,7 @@ const root=new URL('../dist/',import.meta.url);
 let html=await fs.readFile(new URL('index.html',root),'utf8');
 const jsPath=html.match(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/script>/)[1];
 let js=await fs.readFile(new URL(jsPath.slice(1),root),'utf8');
-for(const name of ['hobo','enemy']){
+for(const name of ['hobo','enemy','street']){
  const bytes=await fs.readFile(new URL(`models/${name}.glb`,root));
  const uri='data:model/gltf-binary;base64,'+bytes.toString('base64');
  js=js.replaceAll(new RegExp(`/models/${name}\\.glb(?:\\?[^\"'\\s]*)?`,'g'),uri);

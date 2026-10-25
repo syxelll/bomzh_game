@@ -1,0 +1,5 @@
+import {NodeIO} from '@gltf-transform/core';import {ALL_EXTENSIONS} from '@gltf-transform/extensions';import {dedup,prune,flatten,join,textureCompress} from '@gltf-transform/functions';import sharp from 'sharp';import {stat} from 'node:fs/promises';
+const source=process.argv[2];if(!source)throw Error('Pass exported street GLB');const target=process.argv[3]??'public/models/street.glb';
+const io=new NodeIO().registerExtensions(ALL_EXTENSIONS),doc=await io.read(source);console.log('Before',doc.getRoot().listMeshes().length,'meshes',doc.getRoot().listTextures().length,'textures');
+await doc.transform(dedup(),flatten(),join({keepNamed:false}),prune(),textureCompress({encoder:sharp,targetFormat:'webp',resize:[2048,2048],quality:90,slots:/^(baseColorTexture|emissiveTexture)$/}),textureCompress({encoder:sharp,targetFormat:'webp',resize:[1024,1024],quality:95,slots:/^(?!baseColorTexture$|emissiveTexture$)/}));await io.write(target,doc);
+console.log('Street:',(await stat(source)).size,'→',(await stat(target)).size,'bytes;',doc.getRoot().listMeshes().length,'mesh groups;',doc.getRoot().listTextures().length,'textures');

@@ -20,7 +20,7 @@ export class LightingSettings{
  }
  set(value){this.value=sanitizeLighting({...this.value,...value},this.defaults);this.apply();}
  reset(){this.value={...this.defaults};this.apply();}
- apply(){const v=this.value;this.renderer.toneMappingExposure=v.exposure;this.sun.intensity=v.sunIntensity;this.sun.color.set(v.sunColor);this.ambient.intensity=v.ambientIntensity;this.ambient.color.set(v.skyColor);this.ambient.groundColor.set(v.groundColor);this.scene.background.set(v.fogColor);this.scene.fog.color.set(v.fogColor);this.scene.fog.near=v.fogStart;this.scene.fog.far=v.fogStart+v.fogDepth;this.renderer.shadowMap.enabled=v.shadows;this.follow(this.targetX);}
+ apply(){const v=this.value;this.renderer.toneMappingExposure=v.exposure;this.sun.intensity=v.sunIntensity;this.sun.color.set(v.sunColor);this.ambient.intensity=v.ambientIntensity;this.ambient.color.set(v.skyColor);this.ambient.groundColor.set(v.groundColor);this.scene.background.set(v.fogColor);this.scene.fog.color.set(v.fogColor);this.scene.fog.near=v.fogStart;this.scene.fog.far=v.fogStart+v.fogDepth;this.renderer.shadowMap.enabled=v.shadows;this.follow(this.targetX);this.onChange?.(v);}
  follow(x){this.targetX=x;const a=this.value.azimuth*Math.PI/180,e=this.value.elevation*Math.PI/180,r=Math.sqrt(296);this.sun.position.set(x+r*Math.cos(e)*Math.sin(a),r*Math.sin(e),r*Math.cos(e)*Math.cos(a));this.sun.target.position.set(x,0,0);}
  export(){return {version:1,settings:{...this.value}};}
  save(){try{this.storage.setItem(KEY,JSON.stringify(this.export()));return true;}catch{return false;}}
