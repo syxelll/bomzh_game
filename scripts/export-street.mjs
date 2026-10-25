@@ -12,7 +12,7 @@ try{
   const THREE=await import('/node_modules/three/build/three.module.js'),{Street}=await import('/src/world.js'),{lightingDefaults}=await import('/src/lighting.js');
   const scene=new THREE.Scene(),street=new Street(scene,{editable:true}),chunks=[],materials=[],textures=[],materialIds=new Map(),textureIds=new Map();
   function textureId(t){if(!t)return null;if(!textureIds.has(t.uuid)){textureIds.set(t.uuid,textures.length);textures.push({name:'StreetTexture_'+textures.length,data:t.image.toDataURL('image/png'),repeat:t.wrapS===THREE.RepeatWrapping});}return textureIds.get(t.uuid);}
-  function materialId(m){if(!materialIds.has(m.uuid)){const name=[...street.materials].find(([,v])=>v===m)?.[0]??'sign';materialIds.set(m.uuid,materials.length);materials.push({name,color:'#'+m.color.getHexString(),roughness:m.roughness??1,unlit:m.isMeshBasicMaterial??false,map:textureId(m.map),bumpMap:textureId(m.bumpMap),bumpScale:m.bumpScale??0});}return materialIds.get(m.uuid);}
+  function materialId(m){if(!materialIds.has(m.uuid)){const name=[...street.materials].find(([,v])=>v===m)?.[0]??(m.name||'sign');materialIds.set(m.uuid,materials.length);materials.push({name,color:'#'+m.color.getHexString(),roughness:m.roughness??1,unlit:m.isMeshBasicMaterial??false,map:textureId(m.map),bumpMap:textureId(m.bumpMap),bumpScale:m.bumpScale??0});}return materialIds.get(m.uuid);}
   for(const index of [-1,0,1]){
    const chunk=street.makeChunk(index),{group}=chunk;group.updateMatrixWorld(true);const meshes=[];
    group.traverse(o=>{if(!o.isMesh)return;let p=o,pickup=false;while(p&&p!==group){if(chunk.bottles.some(b=>b.mesh===p))pickup=true;p=p.parent;}

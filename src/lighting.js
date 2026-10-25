@@ -1,5 +1,5 @@
 const KEY='bomzh:lighting:v1';
-export const lightingDefaults={exposure:1.08,sunIntensity:2.2,sunColor:'#f1e8df',azimuth:-53.13,elevation:54.46,ambientIntensity:2.6,skyColor:'#e1e4e2',groundColor:'#696a67',fogColor:'#92968d',fogStart:24,fogDepth:38,shadows:true};
+export const lightingDefaults={exposure:1.08,sunIntensity:3.2,sunColor:'#f2e4cd',azimuth:-48,elevation:52,ambientIntensity:1.5,skyColor:'#c5ccc8',groundColor:'#505347',fogColor:'#85867c',fogStart:24,fogDepth:38,shadows:true};
 const ranges={exposure:[.2,2.5],sunIntensity:[0,6],azimuth:[-180,180],elevation:[5,85],ambientIntensity:[0,5],fogStart:[5,60],fogDepth:[5,80]};
 export function sanitizeLighting(input,defaults=lightingDefaults){
  const result={...defaults};if(!input||typeof input!=='object')return result;

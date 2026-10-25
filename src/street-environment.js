@@ -15,6 +15,8 @@ export function extendFrontPaving(root){
 // Limit the reflection map to street materials so character rendering stays consistent.
 export function setupStreetReflections(root,renderer,lighting){
  const materials=new Set();root.traverse(o=>{if(o.isMesh)materials.add(o.material);});
+ const anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+ for(const m of materials)for(const key of ['map','normalMap','roughnessMap','metalnessMap','aoMap'])if(m[key]){m[key].anisotropy=anisotropy;m[key].needsUpdate=true;}
  const scene=new THREE.Scene(),geometry=new THREE.SphereGeometry(10,24,12),colors=new Float32Array(geometry.attributes.position.count*3),material=new THREE.MeshBasicMaterial({side:THREE.BackSide,vertexColors:true});geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));scene.add(new THREE.Mesh(geometry,material));
  const pmrem=new THREE.PMREMGenerator(renderer);let target=null,key='';
  lighting.onChange=value=>{

@@ -45,6 +45,7 @@ const ambient=new THREE.HemisphereLight('#e1e4e2', '#696a67', 2.6);scene.add(amb
 const sun = new THREE.DirectionalLight('#f1e8df', 2.2); sun.position.set(-8,14,6); sun.castShadow=true;
 sun.shadow.mapSize.set(graphics.shadowSize,graphics.shadowSize); Object.assign(sun.shadow.camera,{left:-18,right:18,top:14,bottom:-14,far:45}); sun.shadow.bias=-.001;sun.shadow.normalBias=.025;sun.shadow.radius=3;scene.add(sun,sun.target);
 const lighting=new LightingSettings({scene,renderer,sun,ambient,lowQuality});
+if(new URLSearchParams(location.search).get('lighting')==='reference')lighting.reset();
 const mat=color=>new THREE.MeshStandardMaterial({color,roughness:.92});
 const contactShadows=new ContactShadows(scene);
 const sprayEffect=new SprayEffect(scene);
@@ -145,7 +146,7 @@ window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventLi
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,height,walkDistance:0,baseVisualY:visual.position.y,shadow:contactShadows.add()};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
 try{
- const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=denim1'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json?v=combos1').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=street1')]);
+ const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=denim1'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json?v=combos1').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=courtyard2')]);
  extendFrontPaving(environment.scene);setupStreetReflections(environment.scene,renderer,lighting);
  street.setEnvironment(environment.scene);street.update(-8);
  Object.assign(player,character(hero.scene,1.85));attachUserActions(player,actions);cosmetics=new Cosmetics(player);cosmetics.set(wallet.profile.equipped);player.root.rotation.y=Math.PI/2;
