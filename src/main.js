@@ -116,7 +116,7 @@ function attack(kind){
  if(player.cooldowns[kind]>0)return;
  if(!spendStamina(player,kind)){toast('Передохни или продолжай кулаками — они не тратят силы');return;}
  if(kind==='jab'){const count=comboClips(player.userActions).length||3;player.combo=time-player.lastJab<(player.attackSpec?.duration??.65)+.65?(player.combo%count)+1:1;player.lastJab=time;}else player.combo=0;
- player.attackSpec=kind==='jab'?{...attacks.jab,...comboSpec(player.userActions,player.combo-1)}:attacks[kind];player.attackSerial=(player.attackSerial??0)+1;
+ player.attackSpec=kind==='jab'?{...attacks.jab,...comboSpec(player.userActions,player.combo-1)}:kind==='spray'&&player.userActions?.clips.spray?{...attacks.spray,duration:player.userActions.clips.spray.duration,clip:'spray'}:attacks[kind];player.attackSerial=(player.attackSerial??0)+1;
  player.attack=kind;player.attackTime=0;player.cooldowns[kind]=player.attackSpec.cooldown;player.hit=false;player.sprayHits=new Set();
  tone(kind==='kick'?180:300);
 }
@@ -146,7 +146,7 @@ window.addEventListener('keyup',e=>keys.delete(keyMap[e.key]));window.addEventLi
 function character(template,height){const root=new THREE.Group(),visual=clone(template);visual.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(visual),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());const scale=height/size.y;visual.scale.setScalar(scale);visual.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);root.add(visual);scene.add(root);const bones=[];visual.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}if(o.isBone)bones.push({bone:o,rest:o.rotation.clone()});});const actor={root,visual,bones,height,walkDistance:0,baseVisualY:visual.position.y,shadow:contactShadows.add()};prepareAnimator(actor);return actor;}
 const loader=new GLTFLoader();
 try{
- const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=denim1'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json?v=combos1').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=courtyard2')]);
+ const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=hero20261026'),loader.loadAsync('/models/enemy.glb'),fetch('/models/hobo-actions.json?v=hero20261026').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=doors1')]);
  extendFrontPaving(environment.scene);setupStreetReflections(environment.scene,renderer,lighting);
  street.setEnvironment(environment.scene);street.update(-8);
  Object.assign(player,character(hero.scene,1.85));attachUserActions(player,actions);cosmetics=new Cosmetics(player);cosmetics.set(wallet.profile.equipped);player.root.rotation.y=Math.PI/2;
@@ -226,7 +226,7 @@ function frame(){frames++;requestAnimationFrame(frame);const rawDt=Math.min(cloc
  $('super').disabled=superPower<100||!!cinematic||!!player.attack||player.stun>0||player.dodge>0||state.over;
  $('super').classList.toggle('ready',superPower>=100);
  if(time>toastUntil)$('toast').textContent='';
- sprayEffect.update(player,ready&&!state.over&&!cinematic&&player.attack==='spray'&&player.attackTime/attacks.spray.duration>=.2&&player.attackTime/attacks.spray.duration<=.8,time);
+ sprayEffect.update(player,ready&&!state.over&&!cinematic&&player.attack==='spray'&&player.attackTime/(player.attackSpec??attacks.spray).duration>=.2&&player.attackTime/(player.attackSpec??attacks.spray).duration<=.8,time);
  $('shop-open').disabled=!ready||!!cinematic;
  cosmetics?.update();if(ready){contactShadows.update(player);for(const e of enemies)contactShadows.update(e);}
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:paused?0:rawDt,width:innerWidth,height:innerHeight});

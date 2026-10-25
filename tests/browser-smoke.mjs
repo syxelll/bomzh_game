@@ -9,7 +9,7 @@ try{
   const initial=await page.evaluate(()=>window.gameDebug());assert.equal(initial.worldChunks,5);assert.equal(initial.health,100);
   if(mobile){const b=page.locator('[data-move="right"]');await b.dispatchEvent('pointerdown',{pointerId:1});await page.waitForFunction(()=>window.gameDebug().player.x>-6.5,null,{timeout:60000});await b.dispatchEvent('pointerup',{pointerId:1});}
   else{await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().player.x>-6.5,null,{timeout:60000});await page.keyboard.up('d');}
-  const after=await page.evaluate(()=>window.gameDebug());assert.ok(after.player.x>initial.player.x,'movement');assert.deepEqual(after.authoredActions.sort(),['idle','jab_01_combo','jab_02_combo','kick_combo','walk']);
+  const after=await page.evaluate(()=>window.gameDebug());assert.ok(after.player.x>initial.player.x,'movement');assert.deepEqual(after.authoredActions.sort(),['idle','jab_01_combo','jab_02_combo','kick_combo','spray','walk']);
   await page.locator('[data-attack="jab"]').dispatchEvent('pointerdown');
   await page.screenshot({path:`/workspace/bomzh_game/${mobile?'mobile':'desktop'}-preview.png`});
   assert.deepEqual(errors,[]);console.log(mobile?'Mobile':'Desktop','OK',JSON.stringify(after));await context.close();

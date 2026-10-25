@@ -35,7 +35,7 @@ for o in meshes:
  bpy.ops.object.mode_set(mode='EDIT');bpy.ops.mesh.select_all(action='SELECT');bpy.ops.uv.smart_project(island_margin=0.025);bpy.ops.object.mode_set(mode='OBJECT')
  # Unconnected procedural coordinates still read the source UV map during bake.
  source_uv.active_render=True
- size=1024 if o.name in {'dead','shtani'} else 512
+ size=1024 if o.name.split('.')[0] in {'dead','shtani'} else 512
  baked={}
  for kind in ['DIFFUSE','ROUGHNESS','NORMAL']:
   image=bpy.data.images.new(name+'_'+o.name+'_'+kind,width=size,height=size,alpha=False)

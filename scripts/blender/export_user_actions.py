@@ -45,9 +45,11 @@ for obj in bpy.data.objects:
 if rig.animation_data:
  for track in rig.animation_data.nla_tracks:track.mute=True
 names=sorted(n for n in weighted if n in baseline and n in rig.pose.bones)
-result={'version':1,'fps':bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,'bones':names,'clips':{}}
+result={'version':1,'sourceSha256':hashlib.sha256(pathlib.Path(args.source).read_bytes()).hexdigest(),'fps':bpy.context.scene.render.fps/bpy.context.scene.render.fps_base,'bones':names,'clips':{}}
+aliases={'AW • rig • Walk.001':'walk','mocha':'spray'}
 for action in list(bpy.data.actions):
- if action.name not in {'idle','jab_01','kick','walk'} and not action.name.endswith('_combo'):continue
+ clip_name=aliases.get(action.name,action.name)
+ if clip_name not in {'idle','jab_01','kick','walk','spray'} and not clip_name.endswith('_combo'):continue
  rig.animation_data.action=None
  for bone in rig.pose.bones:
   if bone.name in bases:bone.matrix_basis=bases[bone.name]
@@ -60,13 +62,18 @@ for action in list(bpy.data.actions):
   root_position=(C@evaluated.matrix_world@evaluated.pose.bones['root.x'].matrix).translation
   if anchor is None:anchor=root_position.copy()
   shift=root_position-anchor
-  motion=Matrix.Translation((-shift.x,0,-shift.z)) if action.name in {'walk','idle'} else Matrix.Identity(4)
+  motion=Matrix.Translation((-shift.x,0,-shift.z)) if clip_name in {'walk','idle'} else Matrix.Identity(4)
   for name in names:
    delta=motion@C@evaluated.matrix_world@evaluated.pose.bones[name].matrix@baseline[name].inverted()@invC
    values.extend(round(delta[row][col],6) for col in range(4) for row in range(4))
   frames.append(values)
   measure.append({'frame':frame,**{name:[round(v,4) for v in (C@evaluated.matrix_world@evaluated.pose.bones[name].matrix).translation] for name in ['hand.l','hand.r','foot.l','foot.r','root.x'] if name in evaluated.pose.bones}})
- result['clips'][action.name]={'start':start,'end':end,'frames':frames,'duration':(end-start)/result['fps'],'markers':{m.name:round(m.frame-start) for m in action.pose_markers}}
+ markers={m.name:round(m.frame-start) for m in action.pose_markers}
+ # The new kick includes its recovery; contact is at maximum forward foot extension.
+ if clip_name.startswith('kick') and 'hit' not in markers:
+  contact=max(measure,key=lambda f:max(f['foot.l'][2],f['foot.r'][2]))
+  markers['hit']=contact['frame']-start
+ result['clips'][clip_name]={'start':start,'end':end,'frames':frames,'duration':(end-start)/result['fps'],'markers':markers}
  print('ACTION_MEASURE',action.name,json.dumps(measure),flush=True)
 (root/'public/models/hobo-actions.json').write_text(json.dumps(result,separators=(',',':')))
 print('EXPORTED',len(names),'bones',list(result['clips']), 'fps',result['fps'],flush=True)

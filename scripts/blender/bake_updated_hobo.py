@@ -1,11 +1,12 @@
 """Bake the visible updated hero, preserving source files and the neutral rig baseline."""
-import bpy,pathlib
+import bpy,pathlib,argparse,sys
+p=argparse.ArgumentParser();p.add_argument("--source",default="/workspace/model-sources/hobo-updated.blend");p.add_argument("--baseline",default="/workspace/model-sources/hobo.blend");a=p.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else [])
 root=pathlib.Path('/workspace/bomzh_game')
-bpy.ops.wm.open_mainfile(filepath='/workspace/model-sources/hobo.blend',use_scripts=False)
+bpy.ops.wm.open_mainfile(filepath=a.baseline,use_scripts=False)
 rig=bpy.data.objects['rig']
 bases={p.name:p.matrix_basis.copy() for p in rig.pose.bones}
 properties={p.name:{k:v for k,v in p.items() if isinstance(v,(int,float,bool))} for p in rig.pose.bones}
-bpy.ops.wm.open_mainfile(filepath='/workspace/model-sources/hobo-updated.blend',use_scripts=False)
+bpy.ops.wm.open_mainfile(filepath=a.source,use_scripts=False)
 rig=bpy.data.objects['rig']
 GAME_EXPORT_MESHES={o.name for o in bpy.context.scene.objects if o.type=='MESH' and not o.name.startswith('cs_') and o.visible_get() and not o.hide_render}
 print('VISIBLE_EXPORT',sorted(GAME_EXPORT_MESHES),flush=True)

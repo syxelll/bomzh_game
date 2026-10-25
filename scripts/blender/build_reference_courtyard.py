@@ -157,7 +157,13 @@ body=bpy.data.objects['BUILDING_SHELL_0_2'];ngs=bpy.data.node_groups.new('COURT_
 gy,gx=np.mgrid[:256,:1024];columns=np.repeat(rng.random(64),16);columns=sum(np.roll(columns,k) for k in range(-8,9))/17
 dirt=(1-gy/255)**1.6*(.65+.35*columns[None,:]);foundation=np.array([108,109,102])[None,None,:]/255+rng.normal(0,.018,(256,1024,1));foundation*=1-dirt[:,:,None]*.58
 foundation_m=material('COURT_DampFoundation',(.35,.35,.31),image('COURT_Foundation_Streaks',foundation),rough=.98)
-b=Parts();b.plane(6.48,.5,0,0,foundation_m,(3,1));foundation_source=b.build('ASSET_COURT_FOUNDATION')
+# Leave the central 1.16m doorway clear; the old continuous band covered its bottom.
+b=Parts()
+for side in [-1,1]:
+ start=len(b.v);b.plane(2.66,.5,0,0,foundation_m,(1.23,1))
+ for k in range(start,len(b.v)):
+  xx,yy,zz=b.v[k];b.v[k]=(xx+side*1.91,yy,zz)
+foundation_source=b.build('ASSET_COURT_FOUNDATION')
 # Placed after the shared source helper is defined below.
 # Ornamental cast-iron lamp sources.
 b=Parts()
@@ -180,7 +186,10 @@ def place(master,name,location,rotation=(0,0,0),scale=(1,1,1),parent=None):
  return o
 # Window ledges and foundation bands group with each house controller.
 b=Parts()
-for z in [.52,2.12,3.77,5.42,6.84]:b.box((0,0,z),(6.48,.19,.1),frame_m)
+for z in [.52,2.12,3.77,5.42,6.84]:
+ if z<2.06:
+  for side in [-1,1]:b.box((side*1.91,0,z),(2.66,.19,.1),frame_m)
+ else:b.box((0,0,z),(6.48,.19,.1),frame_m)
 ledges=b.build('ASSET_COURT_FACADE_BANDS',.007)
 for i in range(4):place(ledges,'COURT_Cornices_'+str(i),(3.25+i*6.5,3.97,0),parent=bpy.data.objects[f'HOUSE_0_{i}_CONTROLS'])
 for i in range(4):place(foundation_source,'COURT_Foundation_'+str(i),(3.25+i*6.5,3.994,0),parent=bpy.data.objects[f'HOUSE_0_{i}_CONTROLS'])
