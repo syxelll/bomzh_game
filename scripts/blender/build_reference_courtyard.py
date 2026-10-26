@@ -223,6 +223,8 @@ for i,(xx,yy) in enumerate([(17.4,3.15),(17.7,3.05),(20,3.15),(23.1,3.0),(23.5,2
 bpy.data.objects['DUMPSTER_0_0'].location.x=18.7
 bpy.data.objects['STREETLIGHT_0_17'].location.x=16.0
 bpy.data.objects['BENCH_0_0'].location.x=14.8
+# Keep the full bench behind the fence, clear of the street and facade.
+bpy.data.objects['BENCH_0_0'].location.y=3.4
 # Open foreground dumpster, outside the walk lane.
 b=Parts();b.box((0,.37,.55),(1.6,.09,1.1),lid);b.box((0,-.37,.55),(1.6,.09,1.1),lid)
 for xx in [-.76,.76]:b.box((xx,0,.55),(.09,.74,1.1),lid)
