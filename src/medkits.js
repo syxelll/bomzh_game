@@ -1,0 +1,8 @@
+import * as THREE from 'three';
+export const MEDKIT_HEAL=30;
+export class Medkits{
+ constructor(scene){this.scene=scene;this.chunks=new Map();this.box=new THREE.BoxGeometry(.36,.24,.22);this.stripe=new THREE.BoxGeometry(.06,.14,.012);this.caseMaterial=new THREE.MeshStandardMaterial({color:0xd7d3b9,roughness:.85});this.red=new THREE.MeshStandardMaterial({color:0xad3f30,roughness:.75});this.ring=new THREE.RingGeometry(.24,.28,24);this.highlight=new THREE.MeshBasicMaterial({color:0x9cca93,transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide});}
+ make(index){const root=new THREE.Group(),body=new THREE.Mesh(this.box,this.caseMaterial);body.position.y=.15;body.castShadow=true;root.add(body);for(const angle of [0,Math.PI/2]){const cross=new THREE.Mesh(this.stripe,this.red);cross.position.set(0,.15,.117);cross.rotation.z=angle;root.add(cross);}const ring=new THREE.Mesh(this.ring,this.highlight);ring.rotation.x=-Math.PI/2;ring.position.y=.018;root.add(ring);const item={x:index*26+12,z:Math.sin(index*1.8)*1.25,mesh:root,taken:false};root.position.set(item.x,0,item.z);this.scene.add(root);return item;}
+ update(player,health,active=true){const index=Math.floor(player.x/26);for(let i=index-1;i<=index+2;i++)if(!this.chunks.has(i))this.chunks.set(i,this.make(i));for(const [i,item]of this.chunks)if(Math.abs(i-index)>2){this.scene.remove(item.mesh);this.chunks.delete(i);}if(!active||health>=100)return 0;for(const item of this.chunks.values())if(!item.taken&&Math.hypot(player.x-item.x,player.z-item.z)<.65){item.taken=true;item.mesh.visible=false;return Math.min(MEDKIT_HEAL,100-health);}return 0;}
+ debug(){return [...this.chunks.values()].filter(i=>!i.taken).map(({x,z})=>({x,z}));}
+}

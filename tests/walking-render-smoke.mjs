@@ -1,7 +1,7 @@
 import {chromium} from '@playwright/test';import assert from 'node:assert/strict';
 const b=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});try{
  const p=await b.newPage({viewport:{width:800,height:500},deviceScaleFactor:2}),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.route('https://telegram.org/js/telegram-web-app.js',r=>r.fulfill({contentType:'text/javascript',body:''}));
- await p.goto(process.env.GAME_URL??'http://127.0.0.1:5173/?quality=high&lighting=reference');await p.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:120000});
+ await p.goto(process.env.GAME_URL??'http://127.0.0.1:5173/?quality=high&lighting=reference');await p.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:120000});if(await p.locator('#menu-play').isVisible())await p.locator('#menu-play').click();
  const d=await p.evaluate(()=>gameDebug());assert.deepEqual(d.graphics.shadows,{enabled:true,filter:'soft',everyFrame:true,size:2048});assert.equal(d.depthOfField.enabled,false);
  // Keep walking away from encounters; a real display frame must not recreate its canvas.
  await p.keyboard.down('w');const samples=await p.evaluate(async()=>{const values=[];for(let i=0;i<40;i++){await new Promise(requestAnimationFrame);const d=gameDebug();values.push({ratio:d.graphics.pixelRatio,pending:d.graphics.pendingPixelRatio,moving:d.player.moving,motion:d.player.motion,offset:d.player.groundOffset,z:d.player.z,stride:d.player.walkStride,distance:d.player.walkDistance});}return values;});await p.keyboard.up('w');

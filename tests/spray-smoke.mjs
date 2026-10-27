@@ -4,7 +4,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['-
 try{
  for(const mobile of (process.argv.includes('--mobile')?[true]:[false,true])){
   const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1000,height:700},deviceScaleFactor:.65}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});
+  await page.goto('http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});if(await page.locator('#menu-play').isVisible())await page.locator('#menu-play').click();
   await page.keyboard.down('w');await page.waitForFunction(()=>window.gameDebug().player.z<-.45);await page.keyboard.up('w');
   await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().player.x>=-1.9,null,{timeout:60000});await page.keyboard.up('d');
   await page.waitForFunction(()=>{const s=window.gameDebug(),e=s.enemies[0];return e&&!e.entering&&Math.hypot(e.x-s.player.x,e.z-s.player.z)<2.8&&Math.abs(e.z-s.player.z)<.8;},null,{timeout:60000});

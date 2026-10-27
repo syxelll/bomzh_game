@@ -3,7 +3,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 try{
  for(const mobile of [false,true]){
  const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1100,height:750},hasTouch:mobile,isMobile:mobile}),errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready&&window.gameDebug().frames>5,null,{timeout:60000});
+ await page.goto('http://127.0.0.1:5173?quality=low');await page.waitForFunction(()=>window.gameDebug?.().ready&&window.gameDebug().frames>5,null,{timeout:60000});if(await page.locator('#menu-play').isVisible())await page.locator('#menu-play').click();
  const initial=await page.evaluate(()=>window.gameDebug());assert.equal(initial.encounter.phase,'explore');assert.equal(initial.enemies.length,0);
  if(mobile)await page.locator('#dodge').tap();else await page.keyboard.press('Space');
  await page.waitForFunction(()=>gameDebug().player.dodgeClip==='dodge'&&gameDebug().player.motion==='dodge'&&gameDebug().player.dodge<gameDebug().player.dodgeDuration*.7,null,{timeout:60000});

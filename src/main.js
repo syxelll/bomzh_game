@@ -1,3 +1,6 @@
+import {MainMenu} from './main-menu.js';
+import {Appearance,characters} from './appearance.js';
+import {Medkits} from './medkits.js';
 import {FireBarrels} from './fire-barrels.js';
 import {Weapons,weaponTypes,weaponAttack} from './weapons.js';
 import {dodgeSpec} from './dodge.js';
@@ -42,6 +45,7 @@ renderer.setPixelRatio(graphics.pixelRatio); renderer.shadowMap.enabled = !lowQu
 renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=true;renderer.shadowMap.needsUpdate=true; renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
 const camera = new THREE.PerspectiveCamera(40, 1, .1, 100);
+const menuBackgroundCamera=camera.clone();
 const dof=new DepthOfField(renderer,{lowQuality,samples:graphics.samples,enabled:new URLSearchParams(location.search).get('dof')==='on'});
 const dofFocus=new THREE.Vector3();
 const cameraRig=new GameCamera(camera,{reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches});
@@ -57,12 +61,14 @@ const contactShadows=new ContactShadows(scene);
 const sprayEffect=new SprayEffect(scene);
 const burpEffect=new BurpEffect(scene);
 const fireBarrels=new FireBarrels(scene);
+const medkits=new Medkits(scene);
 const weapons=new Weapons(scene);
 const street=new Street(scene,{textured:false});street.update(-8);
 const state={health:100,bottles:0,score:0,defeated:0,bruisersDefeated:0,over:false};
 const player={x:-8,z:.5,facing:1,heading:Math.PI/2,attack:null,attackTime:0,cooldowns:{jab:0,kick:0,spray:0,burp:0},queuedAttack:null,stun:0,combo:0,lastJab:-10,invulnerable:0,stamina:100,regenDelay:0,dodge:0,dodgeCooldown:0,dashX:1,dashZ:0};
 const wallet=new Wallet();wallet.beginRun(globalThis.crypto?.randomUUID?.()??`${Date.now()}-${Math.random()}`);
-let cosmetics=null,shopOpen=false,shopWasPaused=false,rewardBusy=false;
+const appearance=new Appearance();
+let mainMenu=null,cosmetics=null,shopOpen=false,shopWasPaused=false,rewardBusy=false;
 const encounters=new Encounters();let spawnEncounterEnemy=null;
 let cinematic=null,superPower=0,returnWall=-8;
 let paused=false,best=readRecord();const pendingSpawns=[],spawnAudit=[];
@@ -115,8 +121,9 @@ async function claimBonus(kind){
 }
 $('revive').onclick=()=>claimBonus('revive');$('double-coins').onclick=()=>claimBonus('double');
 $('restart').onclick=()=>location.reload();
-function togglePause(){if(lightingPanel.isOpen()){lightingPanel.hide();return;}if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
+function togglePause(){if(mainMenu?.visible)return;if(lightingPanel.isOpen()){lightingPanel.hide();return;}if(!ready||state.over||shopOpen)return;paused=!paused;keys.clear();$('pause-menu').hidden=!paused;if(paused)$('resume').focus();}
 const lightingPanel=mountLightingPanel(lighting,{open:()=>{if(!lightingEditor||!paused||shopOpen)return false;keys.clear();$('pause-menu').hidden=true;},close:()=>{$('pause-menu').hidden=false;$('lighting-open').focus();}});
+$('back-to-menu').onclick=()=>{$('pause-menu').hidden=true;mainMenu?.show();};$('ending-menu').onclick=()=>mainMenu?.show();
 $('pause').onclick=togglePause;$('resume').onclick=togglePause;
 function attack(kind){
  if(kind==='kick')return;
@@ -160,7 +167,13 @@ try{
  const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=effectsperf1'),loader.loadAsync('/models/enemy.glb?v=perf1'),fetch('/models/hobo-actions.json?v=rivok1').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=bench1')]);
  extendFrontPaving(environment.scene);setupStreetReflections(environment.scene,renderer,lighting);
  street.setEnvironment(environment.scene);street.update(-8);
- Object.assign(player,character(hero.scene,1.85));attachUserActions(player,actions);cosmetics=new Cosmetics(player);cosmetics.set(wallet.profile.equipped);player.root.rotation.y=Math.PI/2;
+ function makeActor(c){const actor=character(c.model==='hero'?hero.scene:enemy.scene,c.height);if(c.model==='hero')attachUserActions(actor,actions);return actor;}
+ function discardActor(actor){scene.remove(actor.root,actor.shadow);const skeletons=new Set();actor.visual.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);if(o.isMesh&&o.userData.wardrobeMaterials)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});for(const skeleton of skeletons)skeleton.dispose();}
+ let actorKeys=[];
+ function equipCharacter(){if(player.visual){cosmetics?.set('classic');discardActor(player);for(const key of [...actorKeys,'userActions','userBoneIndices','walkSpeed','walkStride','closedLoops','referenceFingers','poseHierarchy','bindByName','lastMotion','transitionFrom','motionId','transitionStart','weaponReferenceRotation'])delete player[key];}const actor=makeActor(characters.find(c=>c.id===appearance.character));actorKeys=Object.keys(actor);Object.assign(player,actor);weapons.hand=null;weapons.palmOffset=null;appearance.apply(player);cosmetics=new Cosmetics(player);cosmetics.set(wallet.profile.equipped);player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.heading;pose(player,time,false,null,0);}
+ equipCharacter();
+ mainMenu=new MainMenu({renderer,wallet,appearance,makeActor:c=>{const actor=makeActor(c);scene.remove(actor.root,actor.shadow);return actor;},record:()=>best,onOpen:()=>{paused=true;keys.clear();$('pause-menu').hidden=true;$('ending').hidden=true;$('menu-play').querySelector('span').textContent=state.over?'Новый забег':time>0?'Продолжить':'Начать забег';},onStart:()=>{if(state.over){sessionStorage.setItem('bomzh:start-now','1');location.reload();return;}equipCharacter();paused=false;$('pause-menu').hidden=true;updateHUD();}});
+
  function spawnEnemy(x,z,type,encounter,scaling){
   const base=enemyTypes[type],spec={...base,health:Math.round(base.health*scaling.health),damage:Math.round(base.damage*scaling.damage),speed:base.speed*scaling.speed,windup:base.windup*scaling.windup};const actor=character(enemy.scene,type==='bruiser'?2.2:type==='runner'?1.8:1.95);actor.root.position.set(x,0,z);actor.root.rotation.y=-Math.PI/2;
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(.8,.07),new THREE.MeshBasicMaterial({color:spec.color,side:THREE.DoubleSide}));bar.position.y=2.4;actor.root.add(bar);
@@ -169,14 +182,14 @@ try{
   enemies.push({...actor,x,z,type,spec,encounter,entering:true,corpseAge:0,down:0,stun:0,knockback:0,health:spec.health,windup:0,cooldown:1,bar,warning,badge,flash:0,aimX:-1,aimZ:0});
  }
  spawnEncounterEnemy=spawnEnemy;
- ready=true;initTelegram();$('loading').style.display='none';updateHUD();if(lightingEditor){cameraRig.update({player,enemies,time:0,dt:3,width:innerWidth,height:innerHeight});togglePause();$('lighting-open').click();}else toast('Иди вправо. Пройди как можно больше участков!');
+ ready=true;initTelegram();$('loading').style.display='none';updateHUD();if(lightingEditor){cameraRig.update({player,enemies,time:0,dt:3,width:innerWidth,height:innerHeight});togglePause();$('lighting-open').click();}else {cameraRig.update({player,enemies,time:0,dt:3,width:innerWidth,height:innerHeight});mainMenu.show();if(sessionStorage.getItem('bomzh:start-now')==='1'){sessionStorage.removeItem('bomzh:start-now');$('menu-play').click();}}
 }catch(error){console.error(error);$('load-status').textContent='Не удалось загрузить модели. Проверь соединение и обнови страницу.';}
 let hitStop=0;
 const impacts=[];
 function impact(x,z,strength=.18){cameraRig.impact(strength);const mesh=new THREE.Mesh(new THREE.RingGeometry(.1,.22,12),new THREE.MeshBasicMaterial({color:0xffe29a,transparent:true,depthWrite:false,side:THREE.DoubleSide}));mesh.position.set(x,1.1,z);mesh.quaternion.copy(camera.quaternion);scene.add(mesh);impacts.push({mesh,age:0});hitStop=.055;}
 const clock=new THREE.Clock();let pendingResolution=null;
 function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDelta();const ratio=resolution.sample(elapsed,ready&&!paused&&!document.hidden);if(ratio!==null)pendingResolution=ratio;if(pendingResolution!==null&&ready&&!paused&&!player.moving&&!player.attack&&!cinematic&&keys.size===0){renderer.setPixelRatio(pendingResolution);resize();pendingResolution=null;}const rawDt=Math.min(elapsed,.05);const dt=hitStop>0||paused?0:rawDt;hitStop=Math.max(0,hitStop-rawDt);time+=dt;for(let i=impacts.length-1;i>=0;i--){const e=impacts[i];e.age+=rawDt;e.mesh.scale.setScalar(1+e.age*6);e.mesh.material.opacity=1-e.age/.22;if(e.age>=.22){scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();impacts.splice(i,1);}}
- if(ready&&!state.over&&!cinematic){
+ if(ready&&!state.over&&!cinematic&&!mainMenu?.visible){
   if(dt>0)for(let i=pendingSpawns.length-1;i>=0;i--){const item=pendingSpawns[i];item.wait-=dt;if(item.wait<=0){const entry=offscreenSpawn(camera,item.foe.side,item.foe.z);spawnEncounterEnemy(entry.x,entry.z,item.foe.type,item.arena.id,item.arena.scaling);spawnAudit.push({level:item.arena.number,...entry});if(spawnAudit.length>24)spawnAudit.shift();pendingSpawns.splice(i,1);}}
 
   player.stun=Math.max(0,player.stun-dt);recoverStamina(player,dt);player.dodgeCooldown=Math.max(0,player.dodgeCooldown-dt);const dodgeStep=Math.min(player.dodge,dt);player.dodge=Math.max(0,player.dodge-dt);const dodging=player.dodge>0||dodgeStep>0;
@@ -191,7 +204,7 @@ function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDe
    if(progress>=spec.hitAt&&(player.attack==='spray'?progress<=spec.activeUntil:!player.hit)){player.hit=true;let hits=0;for(const enemy of enemies){if(enemy.health>0&&!(player.attack==='spray'&&player.sprayHits.has(enemy))&&canHit(player,enemy,player.attack)){if(player.attack==='spray')player.sprayHits.add(enemy);superPower=chargeSuper(superPower,12);enemy.health-=spec.damage+(player.combo===3?12:0);const finisher=player.combo===3;enemy.knockback=player.facing*(finisher?5:player.attack==='kick'?4:1.4);enemy.flash=.22;impact(enemy.x,enemy.z,finisher?.26:player.attack==='kick'?.24:player.attack==='spray'?.1:.18);if(enemy.type!=='bruiser'||player.attack!=='jab'){enemy.windup=0;enemy.strike=0;enemy.cooldown=.4;enemy.stun=player.attack==='jab'?.22:player.attack==='spray'?.7:.4;if(finisher){enemy.down=1.25;enemy.stun=0;}}hits++;if(enemy.health<=0){awardDefeat(enemy);superPower=chargeSuper(superPower,18);toast('Противник побеждён');}}}if(hits){if(spec.weapon&&weapons.wear())toast('Оружие сломалось — продолжай кулаками');tone(110);if(player.combo===3)toast('Комбо! Третий удар сильнее');updateHUD();}}
    if(progress>=1){player.cooldowns[player.attack]=Math.max(0,player.cooldowns[player.attack]-1e-6);player.attack=null;if(player.queuedAttack){const queued=player.queuedAttack;player.queuedAttack=null;if(queued.until>=time){attack(queued.kind);progress=0;}}}
   }
-  const walkPose=player.moving&&(!dodging||length>0);player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.heading+sampleMotion(time,walkPose,player.attack,progress,player.combo).spin;pose(player,time,walkPose,player.attack,progress);
+  const walkPose=player.moving&&(!dodging||length>0);player.root.position.set(player.x,0,player.z);player.root.rotation.y=player.heading+sampleMotion(time,walkPose,player.attack,progress,player.combo).spin;player.weaponType=weapons.equipped?.type??(player.attack?player.attackSpec?.weapon:null);player.animationTime=time;pose(player,time,walkPose,player.attack,progress);
   for(const enemy of enemies){
    if(enemy.health<=0){enemy.corpseAge+=dt;enemy.root.rotation.z=THREE.MathUtils.damp(enemy.root.rotation.z,-(enemy.fallSide??1)*Math.PI/2,5,dt);enemy.root.position.y=THREE.MathUtils.damp(enemy.root.position.y,.2,5,dt);enemy.bar.visible=false;enemy.badge.visible=false;enemy.warning.visible=false;pose(enemy,time,false,null,0);continue;}
    if(enemy.entering){const mx=player.x-enemy.x,mz=player.z-enemy.z,distance=Math.hypot(mx,mz),speed=Math.max(3.8,enemy.spec.speed*1.65);if(distance>.1){enemy.x+=mx/distance*dt*speed;enemy.z+=mz/distance*dt*speed;advanceWalk(enemy,speed*dt);}enemy.root.position.set(enemy.x,0,enemy.z);enemy.root.rotation.y=turnToward(enemy.root.rotation.y,directionYaw(mx,mz),dt);pose(enemy,time,true,null,0);if(distance<3.4&&enemy.x>encounters.bounds[0]+.4&&enemy.x<encounters.bounds[1]-.4)enemy.entering=false;continue;}
@@ -210,7 +223,7 @@ function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDe
    enemy.bar.scale.x=Math.max(0,enemy.health/enemy.spec.health);enemy.bar.quaternion.copy(camera.quaternion);enemy.bar.quaternion.premultiply(enemy.root.quaternion.clone().invert());enemy.bar.material.color.set(enemy.windup>0?'#ffdd66':enemy.spec.color);pose(enemy,time,moving,(enemy.windup>0||enemy.strike>0)?'jab':null,enemy.strike>0?.25+.75*(1-enemy.strike/.3):enemy.windup>0?.25*(1-enemy.windup/enemy.spec.windup):0);
   }
   for(let i=enemies.length-1;i>=0;i--)if(enemies[i].health<=0&&enemies[i].corpseAge>3){const e=enemies[i];scene.remove(e.root,e.warning,e.shadow);for(const mesh of [e.warning,e.bar,e.badge]){mesh.geometry.dispose();mesh.material.dispose();}const skeletons=new Set();e.root.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});for(const skeleton of skeletons)skeleton.dispose();enemies.splice(i,1);}
-  weapons.update(player);fireBarrels.update(player.x,time);
+  weapons.update(player);fireBarrels.update(player.x,time);const healing=medkits.update(player,state.health,dt>0);if(healing){state.health+=healing;toast(`Аптечка · +${healing} здоровья`);tone(740);updateHUD();}
   street.update(player.x);const collected=street.collect(player);if(collected){const before=state.bottles;state.bottles+=collected;wallet.earn(collected*3);state.score+=collected*10;if(Math.floor(state.bottles/5)>Math.floor(before/5))state.health=Math.min(100,state.health+5);tone(650);toast(`+${collected} бутылка · +${collected*10} очков`);updateHUD();}
   const pending=pendingSpawns.map(item=>({encounter:item.arena.id,health:1}));const event=encounters.update(dt,player.x,[...enemies,...pending]);
   if(event?.type==='spawn')for(const foe of event.enemies)pendingSpawns.push({foe,arena:event.arena,wait:foe.delay});
@@ -239,7 +252,7 @@ function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDe
  $('weapon-name').textContent=weapon?.label??'Кулаки';$('weapon-uses').textContent=held?`${held.uses} / ${weapon.uses} ударов`:'Без оружия';$('weapon-durability').max=weapon?.uses??1;$('weapon-durability').value=held?.uses??0;
  $('weapon-pickup').hidden=!weapons.nearby||state.over||!!cinematic||paused;$('weapon-pickup').textContent=weapons.nearby?`E · Взять: ${weaponTypes[weapons.nearby.type].label}`:'';
  document.querySelector('[data-attack="jab"] b').textContent=weapon?.label??'Удар';
- if(ready)weapons.pose(player,!!cinematic||state.over||!!player.attack&&player.attack!=='jab');
+ if(ready)weapons.pose(player,mainMenu?.visible||!!cinematic||state.over||!!player.attack&&player.attack!=='jab');
  $('super').disabled=superPower<100||!!cinematic||!!player.attack||player.stun>0||player.dodge>0||state.over;
  $('super').classList.toggle('ready',superPower>=100);
  if(time>toastUntil)$('toast').textContent='';
@@ -248,11 +261,12 @@ function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDe
  $('shop-open').disabled=!ready||!!cinematic;
  cosmetics?.update();if(ready){contactShadows.update(player);for(const e of enemies)contactShadows.update(e);}
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:paused?0:rawDt,width:innerWidth,height:innerHeight});
- lighting.follow(targetX);const subject=cinematic?.target;dofFocus.set(subject?(player.x+subject.root.position.x)/2:player.x,1,subject?(player.z+subject.root.position.z)/2:player.z);dof.render(scene,camera,dofFocus,paused?0:rawDt);
+ lighting.follow(targetX);if(mainMenu?.visible){mainMenu.render(rawDt,()=>{fireBarrels.update(player.x,time+mainMenu.time);menuBackgroundCamera.copy(camera);menuBackgroundCamera.position.x+=Math.sin(mainMenu.time*.15)*.12;renderer.render(scene,menuBackgroundCamera);});return;}
+ const subject=cinematic?.target;dofFocus.set(subject?(player.x+subject.root.position.x)/2:player.x,1,subject?(player.z+subject.root.position.z)/2:player.z);dof.render(scene,camera,dofFocus,paused?0:rawDt);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);dof.resize(w,h);camera.aspect=w/h;camera.fov=w<650?53:40;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();camera.position.set(-6.55,1.8,6.2);frame();
 // Read-only diagnostics for smoke tests; no gameplay mutations are exposed.
-window.gameDebug=()=>({ready,frames,...state,paused,weapons:weapons.debug(),graphics:{mode:graphics.mode,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height,samples:dof.enabled?dof.target.samples:0,triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls,frameMs:resolution.averageMs,adaptive:true,pendingPixelRatio:pendingResolution,shadows:{enabled:renderer.shadowMap.enabled,filter:renderer.shadowMap.type===THREE.PCFSoftShadowMap?'soft':'pcf',everyFrame:renderer.shadowMap.autoUpdate,size:sun.shadow.mapSize.x}},depthOfField:{enabled:dof.enabled,focus:dof.focus,maxBlur:dof.maxBlur},lighting:{...lighting.value},environment:street.template?'authored':'procedural',cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,sprayGrowth:sprayEffect.growth,sprayOrigin:sprayEffect.root.position.toArray(),burpVisible:burpEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,moving:!!player.moving,motion:player.motionId,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeDuration:player.dodgeDuration,dodgeClip:player.dodge>0&&player.userActions?.clips.dodge?'dodge':null,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
+window.gameDebug=()=>({ready,frames,...state,paused,menu:mainMenu?.visible??false,character:appearance.character,palette:appearance.palette,weapons:weapons.debug(),medkits:medkits.debug(),graphics:{mode:graphics.mode,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height,samples:dof.enabled?dof.target.samples:0,triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls,frameMs:resolution.averageMs,adaptive:true,pendingPixelRatio:pendingResolution,shadows:{enabled:renderer.shadowMap.enabled,filter:renderer.shadowMap.type===THREE.PCFSoftShadowMap?'soft':'pcf',everyFrame:renderer.shadowMap.autoUpdate,size:sun.shadow.mapSize.x}},depthOfField:{enabled:dof.enabled,focus:dof.focus,maxBlur:dof.maxBlur},lighting:{...lighting.value},environment:street.template?'authored':'procedural',cameraShake:{enabled:cameraRig.isShakeEnabled(),strength:cameraRig.shake},shopOpen,economy:{coins:wallet.profile.coins,owned:[...wallet.profile.owned],equipped:wallet.profile.equipped,run:{...wallet.run},persistent:wallet.persistent,rewardMode:rewardProvider.mode},sprayVisible:sprayEffect.root.visible,sprayGrowth:sprayEffect.growth,sprayOrigin:sprayEffect.root.position.toArray(),burpVisible:burpEffect.root.visible,superPower,returnWall,cinematic:cinematic?{elapsed:cinematic.elapsed,hit:cinematic.hit,target:cinematic.target.type}:null,best:{...best},worldChunks:street.chunks.size,authoredActions:Object.keys(player.userActions?.clips??{}),pendingSpawns:pendingSpawns.length,spawnAudit:spawnAudit.map(a=>({...a})),player:{x:player.x,z:player.z,moving:!!player.moving,motion:player.motionId,attack:player.attack,attackTime:player.attackTime,attackClip:player.attackSpec?.clip,attackSerial:player.attackSerial,stamina:player.stamina,dodge:player.dodge,dodgeDuration:player.dodgeDuration,dodgeClip:player.dodge>0&&player.userActions?.clips.dodge?'dodge':null,dodgeCooldown:player.dodgeCooldown,facing:player.facing,heading:player.heading,walkDistance:player.walkDistance,walkStride:player.walkStride,feetY:player.feetY,groundOffset:player.groundOffset,combo:player.combo,stun:player.stun,invulnerable:player.invulnerable,cooldowns:{...player.cooldowns}},enemies:enemies.map(e=>({x:e.x,z:e.z,health:e.health,type:e.type,feetY:e.feetY,windup:e.windup,down:e.down,entering:e.entering,encounter:e.encounter})),encounter:{active:encounters.active,phase:encounters.phase,wave:encounters.wave,index:encounters.index,bounds:encounters.bounds}});
 
 
 function initTelegram(){const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();if(tg.isVersionAtLeast?.('7.7'))tg.disableVerticalSwipes?.();}}

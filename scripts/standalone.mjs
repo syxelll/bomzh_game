@@ -10,7 +10,8 @@ for(const name of ['hobo','enemy','street']){
 }
 const actionBytes=await fs.readFile(new URL('models/hobo-actions.json',root));js=js.replace(/\/models\/hobo-actions\.json(?:\?[^"']*)?/g,'data:application/json;base64,'+actionBytes.toString('base64'));
 const cssPath=html.match(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/)[1];
-const css=await fs.readFile(new URL(cssPath.slice(1),root),'utf8');
+let css=await fs.readFile(new URL(cssPath.slice(1),root),'utf8');
+const font=await fs.readFile(new URL('fonts/neucha.ttf',root));css=css.replaceAll('/fonts/neucha.ttf','data:font/ttf;base64,'+font.toString('base64'));
 html=html.replace(/<script async src="https:\/\/telegram.org[^>]*><\/script>/,'');
 html=html.replace(/<script type="module"[^>]*src="[^"]+"[^>]*><\/script>/,()=>'<script>(async()=>{if(document.readyState==="loading")await new Promise(resolve=>document.addEventListener("DOMContentLoaded",resolve,{once:true}));'+js.replaceAll('</script','<\\/script')+'})();</script>');
 html=html.replace(/<link rel="stylesheet"[^>]*href="[^"]+"[^>]*>/,()=>'<style>'+css+'</style>');

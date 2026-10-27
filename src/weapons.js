@@ -4,7 +4,7 @@ export const weaponTypes={
  stick:{label:'Палка',damage:23,range:2.4,uses:8,color:0x88623e,length:1.12},
  rebar:{label:'Арматура',damage:36,range:2.2,uses:10,color:0x88583c,length:1.02},
 };
-export function weaponAttack(type,base){const w=weaponTypes[type];return w?{...base,damage:w.damage,range:w.range,weapon:type}:base;}
+export function weaponAttack(type,base){const w=weaponTypes[type];return w?{...base,duration:.84,cooldown:.84,hitAt:.52,damage:w.damage,range:w.range,weapon:type}:base;}
 export class Weapons{
  constructor(scene){this.scene=scene;this.chunks=new Map();this.equipped=null;this.held=null;this.nearby=null;this.point=new THREE.Vector3();this.quaternion=new THREE.Quaternion();this.scale=new THREE.Vector3();this.grip=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,-Math.PI/2));this.materials=new Map();this.geometries=new Map();}
  model(type){const w=weaponTypes[type],root=new THREE.Group();let material=this.materials.get(type);if(!material){material=new THREE.MeshStandardMaterial({color:w.color,roughness:.85,metalness:type==='stick'?0:.65});this.materials.set(type,material);}const rod=(length,radius,x=0,y=0,angle=0)=>{const key=`${length}:${radius}`;if(!this.geometries.has(key))this.geometries.set(key,new THREE.CylinderGeometry(radius,radius,length,8));const mesh=new THREE.Mesh(this.geometries.get(key),material);mesh.position.set(x,y,0);mesh.rotation.z=angle;mesh.castShadow=true;root.add(mesh);};rod(w.length,type==='stick'?.035:.018,0,w.length/2-.12);if(type==='crowbar'){rod(.18,.018,.07,w.length-.12,-1.05);rod(.1,.023,-.025,-.13,.55);}if(type==='rebar')for(let i=0;i<10;i++)rod(.065,.009,0,i*.085,-.75);return root;}
@@ -12,6 +12,26 @@ export class Weapons{
  }
  pickup(){const item=this.nearby;if(!item)return null;item.taken=true;item.mesh.visible=false;if(this.held)this.scene.remove(this.held);this.equipped={type:item.type,uses:weaponTypes[item.type].uses};this.held=this.model(item.type);this.scene.add(this.held);this.nearby=null;return weaponTypes[item.type].label;}
  wear(){if(!this.equipped)return false;if(--this.equipped.uses>0)return false;this.equipped=null;if(this.held)this.scene.remove(this.held);this.held=null;return true;}
- pose(actor,hidden=false){if(!this.held)return;this.held.visible=!hidden;if(hidden)return;this.hand??=actor.bind.find(b=>b.name==='hand.r')?.bone;const world=actor.posedWorld.get(this.hand);if(!world){this.held.visible=false;return;}world.decompose(this.point,this.quaternion,this.scale);this.held.position.copy(this.point);this.held.quaternion.copy(this.quaternion).multiply(this.grip);}
+ pose(actor,hidden=false){
+ if(!this.held)return;this.held.visible=!hidden;if(hidden)return;
+ this.hand??=actor.bind.find(b=>b.name==='hand.r')?.bone;const world=actor.posedWorld.get(this.hand);if(!world){this.held.visible=false;return;}
+ if(!this.palmOffset){
+  const hand=actor.bind.find(b=>b.bone===this.hand),data=actor.userActions,frame=data?.clips.idle.frames[0];
+  const reference=b=>data?new THREE.Matrix4().fromArray(frame,data.bones.indexOf(b.name)*16).multiply(b.matrix):b.matrix.clone();
+  const refHand=reference(hand),center=new THREE.Vector3();let count=0;
+  for(const name of ['c_middle2.r','c_ring2.r','c_thumb2.r']){const bone=actor.bind.find(b=>b.name===name);if(bone&&(!data||data.bones.includes(name))){center.add(new THREE.Vector3().setFromMatrixPosition(reference(bone)));count++;}}
+  this.palmOffset=(count?center.divideScalar(count):new THREE.Vector3().setFromMatrixPosition(refHand)).applyMatrix4(refHand.clone().invert());
+ }
+ world.decompose(this.point,this.quaternion,this.scale);
+ this.held.position.copy(this.palmOffset).applyMatrix4(world);
+ // Carry upright; during the strike the whole handle follows a deliberate arc.
+ // Blend its orientation through the same pose transition as the wrist.
+ const direction=actor.weaponDirection??new THREE.Vector3(-.12,.96,.27);
+ const desired=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),direction.clone().transformDirection(actor.root.matrixWorld));
+ if(this.orientationSerial!==actor.motionId){this.fromOrientation=this.held.quaternion.clone();this.orientationSerial=actor.motionId;}
+ const t=THREE.MathUtils.clamp((actor.animationTime-(actor.transitionStart??-1))/.12,0,1);
+ this.held.quaternion.copy(this.fromOrientation??desired).slerp(desired,t*t*(3-2*t));
+ }
+
  debug(){return {equipped:this.equipped?{...this.equipped}:null,nearby:this.nearby?.type??null,items:[...this.chunks.values()].flat().filter(i=>!i.taken).map(({type,x,z})=>({type,x,z}))};}
 }
