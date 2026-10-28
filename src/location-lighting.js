@@ -1,0 +1,5 @@
+import * as THREE from 'three';
+export class LocationLighting{
+ constructor({scene,lighting,sun,ambient,renderer}){Object.assign(this,{scene,lighting,sun,ambient,renderer});this.indoor=false;this.lights=[0,1].map(()=>{const light=new THREE.PointLight('#ffca83',18,14,2);light.visible=false;scene.add(light);return light;});}
+ update(location,x){const indoor=location==='entrance';if(!indoor){if(this.indoor)this.lighting.apply();for(const l of this.lights)l.visible=false;this.indoor=false;return;}this.indoor=true;const v=this.lighting.value;this.sun.intensity=v.sunIntensity*.28;this.sun.color.set('#e8d4a8');this.sun.position.set(x-4,3.8,3.5);this.sun.target.position.set(x,0,-2);this.ambient.intensity=Math.max(.45,v.ambientIntensity*.65);this.ambient.color.set('#b8b6a1');this.ambient.groundColor.set('#444c3c');this.renderer.toneMappingExposure=v.exposure*1.06;this.scene.background.set('#565b50');this.scene.fog.color.set('#565b50');this.scene.fog.near=16;this.scene.fog.far=42;const base=Math.floor((x-4)/13)*13+4;this.lights.forEach((l,i)=>{l.visible=true;l.position.set(base+i*13,3.6,-2.65);});}
+}

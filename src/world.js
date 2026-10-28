@@ -15,7 +15,7 @@ export class Street{
   return bottles;
  }
  makeChunk(index){
-  if(this.template){const group=new THREE.Group();group.position.x=index*26;const scenery=this.template.clone(true);scenery.traverse(o=>{o.updateMatrix();o.matrixAutoUpdate=false;});group.add(scenery);const bottles=this.addBottles(group,index);this.scene.add(group);return {group,bottles,local:[]};}
+  if(this.template){const group=new THREE.Group();group.position.x=index*26;const scenery=this.template.clone(true),local=[];scenery.traverse(o=>{o.updateMatrix();o.matrixAutoUpdate=false;if(o.isInstancedMesh)local.push(o);});group.add(scenery);const bottles=this.addBottles(group,index);this.scene.add(group);return {group,bottles,local};}
   const group=new THREE.Group(),bottles=[],local=[],staticMeshes=[];group.position.x=index*26;
   let module={kind:'road',id:'road'};const mark=(kind,id)=>module={kind,id:String(id)};
   const box=(w,h,d,color,x,y,z,kind='plain')=>{const textured=['brick','asphalt','concrete','rust'].includes(kind),geometry=textured?this.metricBox(w,h,d,kind==='asphalt'?4:2):this.unit,m=new THREE.Mesh(geometry,this.material(color,kind));if(!textured)m.scale.set(w,h,d);m.position.set(x,y,z);if(this.editable)m.userData.module=module;staticMeshes.push(m);return m;};
