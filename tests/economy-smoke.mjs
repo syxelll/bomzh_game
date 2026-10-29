@@ -9,7 +9,7 @@ try{
  await page.click('[data-cosmetic="gold"]');assert.equal(await page.evaluate(()=>window.gameDebug().economy.coins),0);assert.equal(await page.locator('[data-cosmetic="gold"]').isDisabled(),true);
  await page.screenshot({path:'/workspace/shop-mobile.png'});await page.click('#shop-close');await page.screenshot({path:'/workspace/cosmetic-gold.png'});
  await page.reload();await page.waitForFunction(()=>window.gameDebug?.().ready,null,{timeout:60000});if(await page.locator('#menu-play').isVisible())await page.locator('#menu-play').click();let s=await page.evaluate(()=>window.gameDebug());assert.equal(s.economy.equipped,'gold');assert.equal(s.economy.coins,0);assert.deepEqual(s.economy.owned,['classic','shades','gold']);
- await page.keyboard.down('w');await page.waitForFunction(()=>window.gameDebug().player.z<-1.15);await page.keyboard.up('w');await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().bottles>=1);await page.keyboard.up('d');
+ await page.keyboard.down('w');await page.waitForFunction(()=>window.gameDebug().player.z<-1.15);await page.keyboard.up('w');await page.keyboard.down('d');await page.waitForFunction(()=>gameDebug().nearbyPickup==='bottle');await page.keyboard.up('d');await page.keyboard.press('e');await page.waitForFunction(()=>gameDebug().bottles>=1);
  s=await page.evaluate(()=>window.gameDebug());assert.equal(s.economy.coins,3);assert.equal(s.economy.run.earned,3);console.log('Store, equip persistence and bottle coins OK');
  if(!process.argv.includes('--shop-only')){
  await page.keyboard.down('d');await page.waitForFunction(()=>window.gameDebug().player.x>=0);await page.keyboard.up('d');

@@ -7,7 +7,7 @@ export class Street{
  setEnvironment(template){
   for(const chunk of this.chunks.values()){this.scene.remove(chunk.group);for(const resource of chunk.local)resource.dispose();}
   this.chunks.clear();this.template=template;this.chunkIndex=null;
-  template.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+  template.traverse(o=>{if(o.isMesh){o.castShadow=!o.userData.noShadow;o.receiveShadow=true;}});
  }
  addBottles(group,index){
   const bottles=[];
@@ -47,5 +47,7 @@ export class Street{
   this.scene.add(group);return {group,bottles,local};
  }
  update(x){const index=Math.floor(x/26);if(index===this.chunkIndex)return;this.chunkIndex=index;for(let i=index-2;i<=index+2;i++)if(!this.chunks.has(i))this.chunks.set(i,this.makeChunk(i));for(const [i,chunk] of this.chunks)if(Math.abs(i-index)>2){this.scene.remove(chunk.group);for(const resource of chunk.local)resource.dispose();this.chunks.delete(i);}}
+ nearestBottle(player,radius=.95){let nearest=null;for(const chunk of this.chunks.values())for(const bottle of chunk.bottles){const distance=Math.hypot(bottle.x-player.x,bottle.z-player.z);if(!bottle.taken&&distance<radius){radius=distance;nearest=bottle;}}return nearest;}
+ takeBottle(player,bottle){if(!bottle||bottle.taken||!Array.from(this.chunks.values()).some(c=>c.bottles.includes(bottle))||Math.hypot(bottle.x-player.x,bottle.z-player.z)>=.95)return false;bottle.taken=true;bottle.mesh.visible=false;return true;}
  collect(player){let count=0;for(const chunk of this.chunks.values())for(const bottle of chunk.bottles)if(!bottle.taken&&Math.hypot(bottle.x-player.x,bottle.z-player.z)<.65){bottle.taken=true;bottle.mesh.visible=false;count++;}return count;}
 }
