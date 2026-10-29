@@ -1,3 +1,4 @@
+import {createVegetation} from './vegetation.js';
 import {COURTYARD_TYPES,COURTYARD_NAMES} from './route.js';
 import {createAgedWindowSet} from './aged-windows.js';
 import * as THREE from 'three';
@@ -6,8 +7,8 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 export function createCourtyard(source,variant=0){
  const root=new THREE.Group();root.name=`Courtyard_${variant}`;root.userData.courtyard=true;root.userData.locationName=COURTYARD_NAMES[variant];root.userData.theme=COURTYARD_TYPES[variant];const originals=new Map();source.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])originals.set(m.name,m);});
  const copy=(pattern,name,color)=>{const original=[...originals.values()].find(m=>pattern.test(m.name));const m=original?original.clone():new THREE.MeshStandardMaterial({color,roughness:.95});m.name=name;for(const key of['map','normalMap','roughnessMap','metalnessMap'])if(m[key]){m[key]=m[key].clone();m[key].wrapS=m[key].wrapT=THREE.RepeatWrapping;m[key].needsUpdate=true;}return m;};
- const brick=copy(/brick/,'Courtyard brick','#896e55'),stone=copy(/Limestone/,'Courtyard limestone','#a49d84'),floor=copy(/Asphalt/,'Courtyard asphalt','#64675c'),plinth=copy(/DampFoundation/,'Courtyard damp foundation','#555e4b'),wood=copy(/Old wood/,'Courtyard old wood','#78644b'),metal=new THREE.MeshStandardMaterial({color:'#485b4b',roughness:.86,metalness:.4}),trim=new THREE.MeshStandardMaterial({color:'#a5a38d',roughness:1}),earth=new THREE.MeshStandardMaterial({color:'#515541',roughness:1}),leaves=new THREE.MeshStandardMaterial({color:variant===1?'#777146':'#536647',roughness:1});
- const windows=createAgedWindowSet(),batches=new Map(),geometries=new Map();
+ const brick=copy(/brick/,'Courtyard brick','#896e55'),stone=copy(/Limestone/,'Courtyard limestone','#a49d84'),floor=copy(/Asphalt/,'Courtyard asphalt','#64675c'),plinth=copy(/DampFoundation/,'Courtyard damp foundation','#555e4b'),wood=copy(/Old wood/,'Courtyard old wood','#78644b'),metal=new THREE.MeshStandardMaterial({color:'#485b4b',roughness:.86,metalness:.4}),trim=new THREE.MeshStandardMaterial({color:'#a5a38d',roughness:1}),earth=new THREE.MeshStandardMaterial({color:'#515541',roughness:1});
+ const vegetation=createVegetation(variant),windows=createAgedWindowSet(),batches=new Map(),geometries=new Map();
  function box(name,w,h,d,material,x,y,z,rotate=0){const key=[w,h,d].join(':');if(!geometries.has(key)){const g=new THREE.BoxGeometry(w,h,d),p=g.attributes.position,n=g.attributes.normal,uv=g.attributes.uv;for(let i=0;i<p.count;i++)uv.setXY(i,(Math.abs(n.getX(i))>.5?p.getZ(i):p.getX(i))/2,(Math.abs(n.getY(i))>.5?p.getZ(i):p.getY(i))/2);geometries.set(key,g);}const geometry=geometries.get(key),mesh=new THREE.Mesh(geometry,material);mesh.name=name;mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.updateMatrix();const groupKey=key+material.uuid;if(!batches.has(groupKey))batches.set(groupKey,{geometry,material,items:[]});batches.get(groupKey).items.push(mesh);return mesh;}
  box('Yard level ground',26,.16,25,floor,13,-.08,1.5);
  box('Rear apartment building',17,7.2,.7,[1,4,5,7].includes(variant)?stone:brick,13,3.6,-9.5);box('Rear foundation',17,.55,.78,plinth,13,.275,-9.43);
@@ -21,7 +22,7 @@ export function createCourtyard(source,variant=0){
  // A porch for the eventual entrance; no props occupy the combat lane.
  box('Rear porch door',1.3,2.35,.18,metal,15.15,1.175,-8.94);box('Porch canopy',2.1,.12,1.1,metal,15.15,2.65,-8.5);
  const bench=(x,z)=>{box('Yard bench seat',2,.1,.55,wood,x,.48,z);box('Yard bench back',2,.45,.1,wood,x,.8,z-.24);for(const dx of[-.72,.72])box('Bench supports',.08,.48,.4,metal,x+dx,.24,z);};if(variant!==1)bench(7.6,-5.2);if(variant===0)bench(18.1,-6.3);
- for(const x of[5.6,20.4]){box('Planter kerb',1.6,.28,1.4,stone,x,.14,-5.9);box('Planter soil',1.4,.07,1.2,earth,x,.3,-5.9);const geometry=new THREE.IcosahedronGeometry(.55,1);const items=[];for(let i=0;i<3;i++){const mesh=new THREE.Mesh(geometry,leaves);mesh.position.set(x+(i-1)*.33,.65+(i%2)*.18,-5.9);mesh.scale.set(.8,.8+(i%2)*.2,.8);mesh.updateMatrix();items.push(mesh);}batches.set('Shrub_'+x,{geometry,material:leaves,items});}
+ for(const x of[5.6,20.4]){box('Planter kerb',1.6,.28,1.4,stone,x,.14,-5.9);box('Planter soil',1.4,.07,1.2,earth,x,.3,-5.9);vegetation.bush(x-.32,.34,-5.9,.85);vegetation.bush(x+.35,.34,-5.95,.95);for(let i=0;i<4;i++)vegetation.grass(x-.6+i*.4,.34,-5.5);}
  if(variant===0){for(const x of[10.8,13.1])box('Clothes line posts',.06,3,.06,metal,x,1.5,-6.3);box('Clothes line',2.3,.022,.022,metal,11.95,2.8,-6.3);for(let i=0;i<3;i++)box('Hanging laundry',.5,.75,.025,i%2?trim:wood,11.25+i*.65,2.4,-6.3);}
  if(variant===1){
   // A compact neighbourhood court sits behind the continuous combat lane.
@@ -64,7 +65,7 @@ export function createCourtyard(source,variant=0){
   for(let i=0;i<3;i++){const x=9.3+i*3.7;for(const dx of[-1.3,1.3])box('Market stall posts',.07,2.4,.07,metal,x+dx,1.2,-6.5);box('Market counter',2.85,.16,1.15,wood,x,.9,-6.2);box('Market awning',3.1,.12,1.9,i%2?metal:trim,x,2.45,-6.4);for(let j=0;j<3;j++){box('Market produce boxes',.7,.3,.7,wood,x-.85+j*.85,1.13,-6.2);box('Empty crate bottom',.57,.025,.57,earth,x-.85+j*.85,1.29,-6.2);}}
  }
  if(variant===5){
-  for(const x of[9.7,16.8]){box('Raised garden bed',3,.35,2,wood,x,.175,-6.4);box('Garden soil',2.8,.08,1.8,earth,x,.36,-6.4);for(let i=0;i<4;i++){box('Garden trellis stakes',.045,2,.045,wood,x-1.1+i*.73,1.3,-7.1);box('Garden foliage',.5,.45,.65,leaves,x-1.1+i*.73,.59,-6.5);}for(const y of[.9,1.5,2.1])box('Garden trellis rails',2.8,.025,.025,wood,x,y,-7.1);}
+  for(const x of[9.7,16.8]){box('Raised garden bed',3,.35,2,wood,x,.175,-6.4);box('Garden soil',2.8,.08,1.8,earth,x,.36,-6.4);for(let i=0;i<4;i++){box('Garden trellis stakes',.045,2,.045,wood,x-1.1+i*.73,1.3,-7.1);vegetation.plant(x-1.1+i*.73,.4,-6.5);vegetation.plant(x-1.1+i*.73,.4,-5.95);}for(const y of[.9,1.5,2.1])box('Garden trellis rails',2.8,.025,.025,wood,x,y,-7.1);}
   for(let i=0;i<7;i++)box('Garden stepping stones',.65,.04,.65,stone,13,.02,-4.2-i*.55);bench(13,-8.15);
  }
  if(variant===6){
@@ -81,5 +82,5 @@ export function createCourtyard(source,variant=0){
  for(let i=0;i<3;i++)box('Rear downpipe' ,.09,6.8,.1,metal,5.2+i*7.5,3.4,-9.06);
  const groups=new Map();let boxes=0;for(const {geometry,material,items}of batches.values()){if(!groups.has(material))groups.set(material,[]);for(const item of items){groups.get(material).push(geometry.clone().applyMatrix4(item.matrix));boxes++;}}
  for(const [material,parts]of groups){if(parts.some(p=>!!p.index)!==parts.every(p=>!!p.index))for(let i=0;i<parts.length;i++)if(parts[i].index){const old=parts[i];parts[i]=old.toNonIndexed();old.dispose();}const geometry=mergeGeometries(parts);for(const p of parts)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;mesh.name=material.name;root.add(mesh);}const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowCount=windows.stats.count;root.userData.windowStyles=windows.stats.styles.size;root.userData.staticBoxes=boxes+windows.stats.parts;
- return root;
+ root.add(vegetation.finish());return root;
 }
