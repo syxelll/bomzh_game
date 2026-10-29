@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-export function locationForStage(index,start='street'){return (index%2===0)===(start!=='entrance')?'street':'entrance';}
+export {locationForStage} from './route.js';
 export const locationNames={street:'Улица',entrance:'Подъезд'};
 function textures(){if(typeof document==='undefined')return {};let seed=93;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
  const make=kind=>{const c=document.createElement('canvas');c.width=c.height=512;const ctx=c.getContext('2d');ctx.fillStyle=kind==='floor'?'#89857a':'#c1b9a2';ctx.fillRect(0,0,512,512);for(let i=0;i<3500;i++){ctx.fillStyle=rand()>.5?'#292f2112':'#fff5d318';ctx.fillRect(rand()*512,rand()*512,rand()*8+1,rand()*9+1);}if(kind==='floor'){for(let y=0;y<512;y+=64)for(let x=0;x<512;x+=64){ctx.fillStyle=(x+y)%128?'#383c3325':'#d4c7ac20';ctx.fillRect(x+1,y+1,62,62);ctx.strokeStyle='#33382e80';ctx.strokeRect(x,y,64,64);}}else{for(let i=0;i<90;i++){const x=rand()*512,y=rand()*512;ctx.fillStyle='#7c786734';ctx.beginPath();ctx.ellipse(x,y,rand()*20+2,rand()*13+2,rand()*3,0,Math.PI*2);ctx.fill();}ctx.strokeStyle='#4c52434a';for(let i=0;i<12;i++){let x=rand()*512,y=rand()*512;ctx.beginPath();ctx.moveTo(x,y);for(let j=0;j<5;j++){x+=(rand()-.5)*26;y+=rand()*25;ctx.lineTo(x,y);}ctx.stroke();}}

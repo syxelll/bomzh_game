@@ -16,7 +16,7 @@ function atlasMaterial(){
  }
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;texture.name='Shared detailed grime atlas';sharedMaterial=new THREE.MeshStandardMaterial({map:texture,transparent:true,alphaTest:.02,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});sharedMaterial.name='Dirt damp and runoff';return sharedMaterial;
 }
-const surfaceName=/brick|limestone|concrete wall|dampfoundation|entrance aged plaster|entrance chipped green|old wood|entrance doors/i;
+const surfaceName=/brick|limestone|concrete wall|dampfoundation|entrance aged plaster|entrance chipped green|old wood|entrance doors|courtyard brick|courtyard limestone|courtyard damp foundation|courtyard old wood/i;
 export function addSurfaceWear(root,location,material=atlasMaterial()){
  if(!material||root.getObjectByName('Surface_wear'))return null;root.updateMatrixWorld(true);const walls=[],floors=[];root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;if(surfaceName.test(mesh.material.name))walls.push(mesh);if(/asphalt|pavement tiles|entrance terrazzo/i.test(mesh.material.name))floors.push(mesh);});
  const ray=new THREE.Raycaster(),parts=[];let patches=0;

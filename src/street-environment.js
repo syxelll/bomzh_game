@@ -13,8 +13,8 @@ export function extendFrontPaving(root){
 }
 // Metals need sky reflections: hemisphere lights alone only illuminate diffuse paint.
 // Limit the reflection map to street materials so character rendering stays consistent.
-export function setupStreetReflections(root,renderer,lighting){
- const materials=new Set();root.traverse(o=>{if(o.isMesh)materials.add(o.material);});
+export function setupStreetReflections(root,renderer,lighting,extraRoots=[]){
+ const materials=new Set();for(const source of[root,...extraRoots])source.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});
  const anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
  for(const m of materials)for(const key of ['map','normalMap','roughnessMap','metalnessMap','aoMap'])if(m[key]){m[key].anisotropy=anisotropy;m[key].needsUpdate=true;}
  const scene=new THREE.Scene(),geometry=new THREE.SphereGeometry(10,24,12),colors=new Float32Array(geometry.attributes.position.count*3),material=new THREE.MeshBasicMaterial({side:THREE.BackSide,vertexColors:true});geometry.setAttribute('color',new THREE.BufferAttribute(colors,3));scene.add(new THREE.Mesh(geometry,material));
