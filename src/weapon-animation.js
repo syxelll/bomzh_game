@@ -40,3 +40,7 @@ export function applyWeaponPose(actor,progress,striking){
  }
  actor.weaponDirection=motion.direction;
 }
+
+export function applyBottleSmashPose(actor,progress){
+ const poses=[[0,[-.27,1.06,.18]],[.28,[-.58,1.82,.08]],[.54,[-.29,1.8,.13]],[.66,[-.48,1.82,.15]],[1,[-.27,1.06,.18]]];let i=1;while(i<poses.length-1&&progress>poses[i][0])i++;const a=poses[i-1],b=poses[i],t=smooth((progress-a[0])/(b[0]-a[0]));const wrist=new THREE.Vector3(...a[1]).lerp(new THREE.Vector3(...b[1]),t);wrist.multiplyScalar((actor.height??1.85)/1.85);aimArm(actor,'.r',actor.root.localToWorld(wrist),actor.root.localToWorld(new THREE.Vector3(-.75,1.35,.05)));
+}

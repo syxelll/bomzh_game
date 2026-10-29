@@ -11,7 +11,7 @@ export class Street{
  }
  addBottles(group,index){
   const bottles=[];
-  for(let i=0;i<5;i++){const object=new THREE.Group(),body=new THREE.Mesh(this.body,this.material('#756033')),label=new THREE.Mesh(this.label,this.labelMaterial),ring=new THREE.Mesh(this.ring,this.material('#e7c25c'));label.position.y=.18;ring.rotation.x=-Math.PI/2;ring.position.y=.018;object.add(body,label,ring);if(this.editable)for(const m of [body,label,ring])m.userData.module={kind:'pickup',id:String(i)};const x=2+i*4.7,z=Math.sin(index*3+i*2.1)*1.5;object.position.set(x,0,z);group.add(object);bottles.push({mesh:object,x:index*26+x,z,taken:false});}
+  for(let i=0;i<(index%4===0?2:1);i++){const object=new THREE.Group(),body=new THREE.Mesh(this.body,this.material('#756033')),label=new THREE.Mesh(this.label,this.labelMaterial),ring=new THREE.Mesh(this.ring,this.material('#e7c25c'));label.position.y=.18;ring.rotation.x=-Math.PI/2;ring.position.y=.018;object.add(body,label,ring);if(this.editable)for(const m of [body,label,ring])m.userData.module={kind:'pickup',id:String(i)};const x=i?21:(index===0?2:5+((index*7%13)+13)%13),z=Math.sin(index*3+i*2.1)*1.5;object.position.set(x,0,z);group.add(object);bottles.push({mesh:object,x:index*26+x,z,taken:false});}
   return bottles;
  }
  makeChunk(index){
