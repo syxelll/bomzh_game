@@ -11,11 +11,11 @@ function paperAtlas(){
 }
 export class WindPapers{
  constructor(scene,{lowQuality=false}={}){
-  const count=lowQuality?8:14,geometry=new THREE.PlaneGeometry(1,1.4,3,5),styles=new Float32Array(count);for(let i=0;i<count;i++)styles[i]=i%3;geometry.setAttribute('paperStyle',new THREE.InstancedBufferAttribute(styles,1));
+  const count=lowQuality?4:6,geometry=new THREE.PlaneGeometry(1,1.4,3,5),styles=new Float32Array(count);for(let i=0;i<count;i++)styles[i]=i%3;geometry.setAttribute('paperStyle',new THREE.InstancedBufferAttribute(styles,1));
   this.clock={value:0};const material=new THREE.MeshStandardMaterial({name:'Windblown newspapers',map:paperAtlas(),roughness:1,side:THREE.DoubleSide});
   material.onBeforeCompile=shader=>{shader.uniforms.paperTime=this.clock;shader.vertexShader='uniform float paperTime; attribute float paperStyle;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>','#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv.x=(vMapUv.x+paperStyle)/3.0;\n#endif').replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.z += sin(position.y*5.0 + paperTime*5.0 + paperStyle*2.0)*0.085 + abs(position.x)*0.12;');};
   this.mesh=new THREE.InstancedMesh(geometry,material,count);this.mesh.name='Windblown leaflets and newspapers';this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.mesh.frustumCulled=false;this.mesh.userData.noShadow=true;this.mesh.visible=false;scene.add(this.mesh);
-  this.items=Array.from({length:count},(_,i)=>({x:(i/count-.5)*48,speed:1.2+(i*7%11)/10,z:-2.3+(i*13%17)/3.5,phase:i*2.399,size:.25+(i*3%5)*.035}));this.dummy=new THREE.Object3D();this.center=null;
+  this.items=Array.from({length:count},(_,i)=>({x:(i/count-.5)*48,speed:1.2+(i*7%11)/10,z:3.5+(i%3)*.22,phase:i*2.399,size:.14+(i*3%5)*.015}));this.dummy=new THREE.Object3D();this.center=null;
  }
  update(center,dt,outdoors=true){
   const active=outdoors;if(!active){this.mesh.visible=false;this.center=null;return;}
@@ -23,7 +23,7 @@ export class WindPapers{
   this.center=center;this.mesh.visible=true;this.clock.value+=Math.max(0,Math.min(dt,.05));const t=this.clock.value;
   for(let i=0;i<this.items.length;i++){const item=this.items[i];item.x+=Math.max(0,Math.min(dt,.05))*item.speed*(1+.35*Math.sin(t*.8));let relative=item.x-center;if(relative>24||relative< -24){relative=((relative+24)%48+48)%48-24;item.x=center+relative;}
    const p=item.phase,fade=THREE.MathUtils.smoothstep(24-Math.abs(relative),0,5),lift=.5+(i%4)*.29;
-   this.dummy.position.set(item.x,lift+.16*Math.sin(t*1.7+p)+Math.max(0,Math.sin(t*.65+p))*.65,item.z+Math.sin(t*.7+p)*.4);
+   this.dummy.position.set(item.x,lift+.16*Math.sin(t*1.7+p)+Math.max(0,Math.sin(t*.65+p))*.65,item.z+Math.sin(t*.7+p)*.12);
    this.dummy.rotation.set(-.7+Math.sin(t*1.8+p)*.8,t*.8+p,Math.sin(t*1.2+p)*.65);this.dummy.scale.setScalar(item.size*fade);this.dummy.updateMatrix();this.mesh.setMatrixAt(i,this.dummy.matrix);
   }this.mesh.instanceMatrix.needsUpdate=true;
  }

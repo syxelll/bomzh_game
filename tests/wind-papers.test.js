@@ -5,8 +5,13 @@ import {WindPapers} from '../src/wind-papers.js';
 test('wind papers keep a fixed pool on endless travel, freeze on pause and reset outside interiors',()=>{
  for(const lowQuality of[false,true]){
   const scene=new THREE.Scene(),papers=new WindPapers(scene,{lowQuality}),geometry=papers.mesh.geometry;papers.update(0,.016);
-  assert.equal(papers.mesh.count,lowQuality?8:14);
-  for(let i=0;i<2000;i++)papers.update(i*7,.05);
+  assert.equal(papers.mesh.count,lowQuality?4:6);
+  geometry.computeBoundingSphere();
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),scale=new THREE.Vector3(),rotation=new THREE.Quaternion();
+  for(let i=0;i<2000;i++){
+   papers.update(i*7,.05);
+   for(let j=0;j<papers.mesh.count;j++){papers.mesh.getMatrixAt(j,matrix);matrix.decompose(position,rotation,scale);const radius=(geometry.boundingSphere.radius+.15)*scale.x;assert.ok(position.z-radius>2.8,'paper edges and flutter must stay clear of the player lane');}
+  }
   for(const item of papers.items)assert.ok(Math.abs(item.x-papers.center)<=24);
   const before=Array.from(papers.mesh.instanceMatrix.array),time=papers.clock.value;papers.update(papers.center,0);assert.deepEqual(Array.from(papers.mesh.instanceMatrix.array),before);assert.equal(papers.clock.value,time);
   papers.update(99999,.05,false);assert.equal(papers.mesh.visible,false);papers.update(99999,.016,true);assert.ok(papers.items.every(item=>Math.abs(item.x-99999)<24));
