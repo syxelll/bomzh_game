@@ -1,3 +1,4 @@
+import {WindPapers} from './wind-papers.js';
 import {CompositingSettings} from './compositing.js';
 import {detailAuthoredWindows} from './aged-windows.js';
 import {routeStage,exitForClear} from './route.js';
@@ -80,6 +81,7 @@ const sprayEffect=new SprayEffect(scene);
 const burpEffect=new BurpEffect(scene);
 const locationDoor=new LocationDoor(scene);
 const fireBarrels=new FireBarrels(scene);
+const windPapers=new WindPapers(scene,{lowQuality});
 const medkits=new Medkits(scene);
 const weapons=new Weapons(scene);
 const street=new Street(scene,{textured:false});street.update(-8);
@@ -295,7 +297,7 @@ function frame(){frames++;requestAnimationFrame(frame);const elapsed=clock.getDe
  $('shop-open').disabled=!ready||!!cinematic;
  cosmetics?.update();if(ready){contactShadows.update(player);for(const e of enemies)contactShadows.update(e);}
  const targetX=ready?player.x:-8;if(!cinematic)cameraRig.update({player:ready?player:{x:-8,z:0,facing:1},enemies,arena:encounters.arena,time,dt:paused?0:rawDt,width:innerWidth,height:innerHeight});
- lighting.follow(targetX);locationLighting.update(currentLocation,targetX);if(mainMenu?.visible){dof.renderCustom(()=>mainMenu.render(rawDt,()=>{fireBarrels.update(player.x,time+mainMenu.time);menuBackgroundCamera.copy(camera);menuBackgroundCamera.position.x+=Math.sin(mainMenu.time*.15)*.12;renderer.render(scene,menuBackgroundCamera);}));return;}
+ lighting.follow(targetX);locationLighting.update(currentLocation,targetX);windPapers.update(targetX,mainMenu?.visible?rawDt:dt,currentLocation==='street');if(mainMenu?.visible){dof.renderCustom(()=>mainMenu.render(rawDt,()=>{fireBarrels.update(player.x,time+mainMenu.time);menuBackgroundCamera.copy(camera);menuBackgroundCamera.position.x+=Math.sin(mainMenu.time*.15)*.12;renderer.render(scene,menuBackgroundCamera);}));return;}
  const subject=cinematic?.target;dofFocus.set(subject?(player.x+subject.root.position.x)/2:player.x,1,subject?(player.z+subject.root.position.z)/2:player.z);dof.render(scene,camera,dofFocus,paused?0:rawDt);
 }
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);dof.resize(w,h);camera.aspect=w/h;camera.fov=w<650?53:40;camera.updateProjectionMatrix();}window.addEventListener('resize',resize);resize();compositing.onChange=()=>dof.resize(innerWidth,innerHeight);camera.position.set(-6.55,1.8,6.2);frame();
