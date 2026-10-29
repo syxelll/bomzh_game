@@ -1,3 +1,4 @@
+import {roadUV,courtyardPaving} from './ground-transitions.js';
 import {propMaterials} from './prop-materials.js';
 import {createVegetation} from './vegetation.js';
 import {COURTYARD_TYPES,COURTYARD_NAMES} from './route.js';
@@ -11,7 +12,7 @@ export function createCourtyard(source,variant=0){
  const brick=copy(/brick/,'Courtyard brick','#896e55'),stone=copy(/Limestone/,'Courtyard limestone','#a49d84'),floor=copy(/Asphalt/,'Courtyard asphalt','#64675c'),plinth=copy(/DampFoundation/,'Courtyard damp foundation','#555e4b'),{wood,metal,trim,soil:earth,fabric}=propMaterials();
  const vegetation=createVegetation(variant),windows=createAgedWindowSet(),batches=new Map(),geometries=new Map();
  function box(name,w,h,d,material,x,y,z,rotate=0){const prop=[wood,metal,trim,earth,fabric].includes(material),round=/Clothes line posts|Exercise|Rear downpipe|Bench fasteners/.test(name),cloth=name==='Hanging laundry',key=[w,h,d,prop,round,cloth].join(':');if(!geometries.has(key)){let g;if(cloth){g=new THREE.PlaneGeometry(w,h,4,5);const p=g.attributes.position;for(let i=0;i<p.count;i++){p.setZ(i,Math.sin(p.getX(i)*25)*.025+Math.pow((h/2-p.getY(i))/h,2)*.055);if(p.getY(i)<-h*.4)p.setY(i,p.getY(i)+Math.sin(p.getX(i)*14)*.025);}g.computeVertexNormals();}else if(round){const length=Math.max(w,h,d),radius=Math.min(w,h,d)/2;g=new THREE.CylinderGeometry(radius,radius,length,8);if(w===length)g.rotateZ(Math.PI/2);else if(d===length)g.rotateX(Math.PI/2);}else g=new THREE.BoxGeometry(w,h,d);const p=g.attributes.position,n=g.attributes.normal,uv=g.attributes.uv;if(!prop)for(let i=0;i<p.count;i++)uv.setXY(i,(Math.abs(n.getX(i))>.5?p.getZ(i):p.getX(i))/2,(Math.abs(n.getY(i))>.5?p.getZ(i):p.getY(i))/2);geometries.set(key,g);}const geometry=geometries.get(key),mesh=new THREE.Mesh(geometry,material);mesh.name=name;mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.updateMatrix();const groupKey=key+material.uuid;if(!batches.has(groupKey))batches.set(groupKey,{geometry,material,items:[]});batches.get(groupKey).items.push(mesh);return mesh;}
- box('Yard level ground',26,.16,25,floor,13,-.08,1.5);
+ box('Subgrade under paving',26,.16,25,floor,13,-.20,1.5);for(const [name,w,d,x,z]of[['Continuous road',26,4.54,13,.25],['Recessed yard ground',17,9,13,-6.52]]){const ground=box(name,w,.16,d,floor,x,-.08,z);roadUV(ground.geometry,ground.matrix);}
  box('Rear apartment building',17,7.2,.7,[1,4,5,7].includes(variant)?stone:brick,13,3.6,-9.5);box('Rear foundation',17,.55,.78,plinth,13,.275,-9.43);
  for(const x of[2.25,23.75]){box('Street-facing wing',4.5,7.8,6.1,[2,3,6].includes(variant)?stone:brick,x,3.9,-6.5);box('Wing foundation',4.55,.55,6.15,plinth,x,.275,-6.48);}
  for(let row=0;row<3;row++)for(const [col,x]of[6.4,9.7,12.8,16.2,19.5].entries())windows.add(col===3?17:x,1.65+row*1.9,-9.145,1.3,1.5,0,row*5+col+variant*3);
@@ -95,5 +96,5 @@ export function createCourtyard(source,variant=0){
  for(let i=0;i<3;i++)box('Rear downpipe' ,.09,6.8,.1,metal,5.2+i*7.5,3.4,-9.06);
  const groups=new Map();let boxes=0;for(const {geometry,material,items}of batches.values()){if(!groups.has(material))groups.set(material,[]);for(const item of items){groups.get(material).push(geometry.clone().applyMatrix4(item.matrix));boxes++;}}
  for(const [material,parts]of groups){if(parts.some(p=>!!p.index)!==parts.every(p=>!!p.index))for(let i=0;i<parts.length;i++)if(parts[i].index){const old=parts[i];parts[i]=old.toNonIndexed();old.dispose();}const geometry=mergeGeometries(parts);for(const p of parts)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;mesh.name=material.name;root.add(mesh);}const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowCount=windows.stats.count;root.userData.windowStyles=windows.stats.styles.size;root.userData.staticBoxes=boxes+windows.stats.parts;
- root.add(vegetation.finish());return root;
+ root.add(vegetation.finish());const paving=courtyardPaving(source);root.add(...paving.children.slice());return root;
 }

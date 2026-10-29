@@ -1,3 +1,4 @@
+import {prepareStreetGround} from './ground-transitions.js';
 import {replaceStreetSigns} from './street-signs.js';
 import {moveCharacter,bodyRadius} from './character-collisions.js';
 import {WindPapers} from './wind-papers.js';
@@ -207,7 +208,7 @@ function character(template,height){const root=new THREE.Group(),visual=clone(te
 const loader=new GLTFLoader();
 try{
  const [hero,enemy,actions,environment]=await Promise.all([loader.loadAsync('/models/hobo.glb?v=oct29'),loader.loadAsync('/models/enemy.glb?v=perf1'),fetch('/models/hobo-actions.json?v=oct29').then(r=>{if(!r.ok)throw new Error('Actions unavailable');return r.json();}),loader.loadAsync('/models/street.glb?v=bench1')]);
- environment.scene.traverse(o=>{if(o.isMesh&&(/graffiti/i.test(o.name)||/graffiti/i.test(o.material?.name??'')))o.visible=false;});extendFrontPaving(environment.scene);detailAuthoredWindows(environment.scene);replaceStreetSigns(environment.scene);addSurfaceWear(environment.scene,'street');
+ environment.scene.traverse(o=>{if(o.isMesh&&(/graffiti/i.test(o.name)||/graffiti/i.test(o.material?.name??'')))o.visible=false;});prepareStreetGround(environment.scene);extendFrontPaving(environment.scene);detailAuthoredWindows(environment.scene);replaceStreetSigns(environment.scene);addSurfaceWear(environment.scene,'street');
  streetTemplate=environment.scene;courtyardTemplates=COURTYARD_TYPES.map((_,v)=>{const root=createCourtyard(streetTemplate,v);addSurfaceWear(root,'street');return root;});setupStreetReflections(environment.scene,renderer,lighting,courtyardTemplates);street.templateForChunk=index=>{if(currentLocation==='entrance')return entranceTemplate;const info=yardInfo(index);return info.courtyard?courtyardTemplates[info.variant]:streetTemplate;};street.setEnvironment(currentLocation==='entrance'?entranceTemplate:streetTemplate);street.update(-8);fireBarrels.setVisible(currentLocation==='street');updateLocationUI();
  function makeActor(c){const actor=character(c.model==='hero'?hero.scene:enemy.scene,c.height);if(c.model==='hero')attachUserActions(actor,actions);return actor;}
  function discardActor(actor){scene.remove(actor.root,actor.shadow);const skeletons=new Set();actor.visual.traverse(o=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);if(o.isMesh&&o.userData.wardrobeMaterials)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});for(const skeleton of skeletons)skeleton.dispose();}
