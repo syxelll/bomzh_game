@@ -15,6 +15,9 @@ export function createEntrance(){
  for(let bay=0;bay<2;bay++){const offset=bay*13;
   // Wall opening exposes a staircase, while the fighting lane remains flat.
   for(const [x,w]of [[3.95,7.9],[12.35,1.3]]){box('Plaster upper wall',w,3.1,.24,plaster,offset+x,2.85,-3.6);box('Green lower wall',w,1.3,.25,paint,offset+x,.65,-3.59);box('Skirting',w,.14,.29,metal,offset+x,.07,-3.55);box('Paint border',w,.045,.28,metal,offset+x,1.3,-3.55);}
+  // Close the sides and ceiling of the recess: the oblique camera must not see sky through it.
+  for(const sideX of [7.88,11.72]){box('Stairwell side plaster',.2,3.2,3.15,plaster,offset+sideX,2.9,-5.05);box('Stairwell side green paint',.22,1.3,3.15,paint,offset+sideX,.65,-5.05);}
+  box('Stairwell ceiling',4,.16,3.25,plaster,offset+9.8,4.5,-5.05,null,false);
   box('Stairwell back wall',3.8,4.5,.2,plaster,offset+9.8,2.25,-6.5);box('Stairwell landing',3.8,.16,1,concrete,offset+9.8,1.68,-6.05);
   for(let step=0;step<12;step++){const height=(step+1)*.14,z=-3.7-step*.2;box('Stair tread',2.15,height,.22,concrete,offset+9.8,height/2,z);for(const side of [-1,1]){const x=offset+9.8+side*1.12;box('Stair baluster',.035,.85,.035,metal,x,height+.425,z);}}
   for(const side of [-1,1]){const a=new THREE.Vector3(offset+9.8+side*1.12,.96,-3.7),b=new THREE.Vector3(a.x,2.5,-5.9),length=a.distanceTo(b),mesh=add(cylinder,metal,a.clone().add(b).multiplyScalar(.5).toArray(),[1,length,1]);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.sub(a).normalize());mesh.updateMatrix();}
