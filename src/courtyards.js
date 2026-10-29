@@ -16,13 +16,43 @@ export function createCourtyard(source,variant=0){
  box('Wing entrance door',1.42,2.4,.16,metal,23.2,1.2,-3.28);box('Wing entrance canopy',1.9,.1,.8,metal,23.2,2.65,-2.95);
  // Side windows face into the yard and make the gap read as real depth.
  for(const side of[-1,1])for(let row=0;row<3;row++)for(const [col,z]of[-5.2,-7.6].entries())windows.add(side<0?4.505:21.495,1.6+row*1.9,z,1.2,1.4,side<0?Math.PI/2:-Math.PI/2,row*3+col+variant+(side>0?4:0));
- box('Low rear path',17,.06,1.3,stone,13,.02,-7.5);
+ box('Low rear path',17,.06,variant===1?.55:1.3,stone,13,.02,variant===1?-8.7:-7.5);
  // A porch for the eventual entrance; no props occupy the combat lane.
  box('Rear porch door',1.3,2.35,.18,metal,15.15,1.175,-8.94);box('Porch canopy',2.1,.12,1.1,metal,15.15,2.65,-8.5);
- const bench=(x,z)=>{box('Yard bench seat',2,.1,.55,wood,x,.48,z);box('Yard bench back',2,.45,.1,wood,x,.8,z-.24);for(const dx of[-.72,.72])box('Bench supports',.08,.48,.4,metal,x+dx,.24,z);};bench(7.6,-5.2);if(variant!==2)bench(18.1,-6.3);
+ const bench=(x,z)=>{box('Yard bench seat',2,.1,.55,wood,x,.48,z);box('Yard bench back',2,.45,.1,wood,x,.8,z-.24);for(const dx of[-.72,.72])box('Bench supports',.08,.48,.4,metal,x+dx,.24,z);};if(variant!==1)bench(7.6,-5.2);if(variant===0)bench(18.1,-6.3);
  for(const x of[5.6,20.4]){box('Planter kerb',1.6,.28,1.4,stone,x,.14,-5.9);box('Planter soil',1.4,.07,1.2,earth,x,.3,-5.9);const geometry=new THREE.IcosahedronGeometry(.55,1);const items=[];for(let i=0;i<3;i++){const mesh=new THREE.Mesh(geometry,leaves);mesh.position.set(x+(i-1)*.33,.65+(i%2)*.18,-5.9);mesh.scale.set(.8,.8+(i%2)*.2,.8);mesh.updateMatrix();items.push(mesh);}batches.set('Shrub_'+x,{geometry,material:leaves,items});}
  if(variant===0){for(const x of[10.8,13.1])box('Clothes line posts',.06,3,.06,metal,x,1.5,-6.3);box('Clothes line',2.3,.022,.022,metal,11.95,2.8,-6.3);for(let i=0;i<3;i++)box('Hanging laundry',.5,.75,.025,i%2?trim:wood,11.25+i*.65,2.4,-6.3);}
- if(variant===1){for(const x of[10.2,12.8])box('Playground bar posts',.07,2.6,.07,metal,x,1.3,-5.4);box('Playground bar',2.67,.07,.07,metal,11.5,2.58,-5.4);box('Abandoned sandbox',3,.22,2,wood,11.5,.11,-6.7);box('Sandbox fill',2.8,.04,1.8,earth,11.5,.23,-6.7);}
+ if(variant===1){
+  // A compact neighbourhood court sits behind the continuous combat lane.
+  root.userData.basketballCourt=true;
+  const paint=trim,rubber=earth,rim=wood;
+  function shape(name,geometry,material,x,y,z,rotation){const mesh=new THREE.Mesh(geometry,material);mesh.name=name;mesh.position.set(x,y,z);if(rotation)mesh.rotation.set(...rotation);mesh.updateMatrix();batches.set(name,{geometry,material,items:[mesh]});}
+  function rod(name,a,b,r,material=metal){const from=new THREE.Vector3(...a),to=new THREE.Vector3(...b),delta=to.clone().sub(from),g=new THREE.CylinderGeometry(r,r,delta.length(),5);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize()));const c=from.add(to).multiplyScalar(.5);shape(name,g,material,c.x,c.y,c.z);}
+  box('Worn court surface',12.2,.018,4.9,rubber,13,.012,-5.95);
+  for(const z of[-8.25,-3.65])box('Court sideline '+z,11.6,.006,.035,paint,13,.025,z);
+  for(const x of[7.2,18.8,13])box('Court line '+x,.035,.006,4.6,paint,x,.025,-5.95);
+  shape('Centre circle',new THREE.RingGeometry(.74,.775,40),paint,13,.029,-5.95,[-Math.PI/2,0,0]);
+  for(const side of[-1,1]){const x=13+side*5.8,inner=x-side*2.15;
+   for(const z of[-6.95,-4.95])box('Key edge '+side+z,2.15,.006,.035,paint,(x+inner)/2,.027,z);
+   box('Free throw line '+side,.035,.006,2,paint,inner,.027,-5.95);
+   shape('Free throw arc '+side,new THREE.RingGeometry(.98,1.015,28,1,side<0?-Math.PI/2:Math.PI/2,Math.PI),paint,inner,.03,-5.95,[-Math.PI/2,0,0]);
+   const post=x+side*.22,board=x-side*.18,hoop=x-side*.6;
+   rod('Basket post '+side,[post,0,-5.95],[post,3.65,-5.95],.065);
+   rod('Basket support '+side,[post,3.45,-5.95],[board,3.45,-5.95],.045);
+   box('Aged backboard '+side,.085,1.05,1.6,trim,board,3.22,-5.95);
+   const face=board-side*.05;
+   for(const z of[-6.26,-5.64])box('Target vertical '+side+z,.016,.42,.025,metal,face,3.1,z);
+   for(const y of[2.9,3.3])box('Target horizontal '+side+y,.016,.025,.64,metal,face,y,-5.95);
+   shape('Basket rim '+side,new THREE.TorusGeometry(.24,.018,5,24),rim,hoop,2.89,-5.95,[Math.PI/2,0,0]);
+   for(let i=0;i<10;i++){const t=i*Math.PI/5,n=t+Math.PI/5;rod('Net '+side+':'+i,[hoop+Math.cos(t)*.23,2.88,-5.95+Math.sin(t)*.23],[hoop+Math.cos(n)*.13,2.52,-5.95+Math.sin(n)*.13],.007,paint);}
+  }
+  // Open frontage: the fencing cannot obstruct the playable route.
+  for(let i=0;i<=6;i++){const x=6.7+i*2.1;rod('Fence post '+i,[x,0,-8.65],[x,2.25,-8.65],.026);}
+  for(const y of[.2,1.1,2.15])rod('Fence rail '+y,[6.7,y,-8.65],[19.3,y,-8.65],.014);
+  for(let i=0;i<63;i++){const x=6.7+i*.2;rod('Fence wire '+i,[x,.2,-8.65],[x,2.15,-8.65],.004);}
+  bench(19.4,-7.5);
+ }
+
  if(variant===2){box('Service dumpster',1.6,1.15,1.1,metal,11.6,.575,-5.8);box('Dumpster lid',1.7,.1,1.2,metal,11.6,1.2,-5.8);for(let i=0;i<4;i++)box('Stacked pallets',1.25,.12,.9,wood,18,.08+i*.14,-5.4);}
  for(let i=0;i<3;i++)box('Rear downpipe',.09,6.8,.1,metal,5.2+i*7.5,3.4,-9.06);
  const groups=new Map();let boxes=0;for(const {geometry,material,items}of batches.values()){if(!groups.has(material))groups.set(material,[]);for(const item of items){groups.get(material).push(geometry.clone().applyMatrix4(item.matrix));boxes++;}}

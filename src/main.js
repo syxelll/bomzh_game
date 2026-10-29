@@ -92,7 +92,7 @@ const encounters=new Encounters();let spawnEncounterEnemy=null;
 let cinematic=null,superPower=0,returnWall=-8;
 let paused=false,best=readRecord();const pendingSpawns=[],spawnAudit=[];
 const enemies=[];const keys=new Set();let frames=0;let time=0,toastUntil=0,audio=null,sound=false,ready=false;
-function yardInfo(index){if(courtyardPreview&&index<=0)return {courtyard:true,variant:0};const info=routeStage(index,startingLocation);return currentLocation==='street'&&index>=0&&info.location==='entrance'?{...info,courtyard:true}:info;}
+function yardInfo(index){if(courtyardPreview&&index<=0)return {courtyard:true,variant:new URLSearchParams(location.search).get('yard')==='basketball'?1:0};const info=routeStage(index,startingLocation);return currentLocation==='street'&&index>=0&&info.location==='entrance'?{...info,courtyard:true}:info;}
 function isCourtyard(x){return currentLocation==='street'&&!!yardInfo(Math.floor(x/26)).courtyard;}
 function laneMinimum(x){if(!isCourtyard(x))return -2;const local=((x%26)+26)%26,t=Math.max(0,Math.min(1,(local-4.8)/2,(21.2-local)/2));return -2-1.5*t;}
 function updateLocationUI(){const name=currentLocation==='street'&&isCourtyard(player.x)?'Двор':locationNames[currentLocation];$('location-name').textContent=name;document.querySelectorAll('[data-start-location]').forEach(b=>{b.classList.toggle('selected',b.dataset.startLocation===startingLocation);b.setAttribute('aria-pressed',String(b.dataset.startLocation===startingLocation));b.disabled=time>0;});}
