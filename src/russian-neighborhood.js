@@ -18,7 +18,6 @@ function materials(){
   const surface=document.createElement('canvas');surface.width=surface.height=512;const p=surface.getContext('2d');p.fillStyle='#aaa89a';p.fillRect(0,0,512,512);let seed=711;const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
   for(let i=0;i<15000;i++){p.fillStyle=i%2?'#e8e4cb22':'#3d423321';p.fillRect(rand()*512,rand()*512,rand()*3+1,rand()*3+1);}
   // Large concrete panel joints, with worn sealant and runoff below them.
-  p.fillStyle='#5a5f52';p.fillRect(0,0,5,512);p.fillRect(0,0,512,5);p.fillStyle='#ddd8bc90';p.fillRect(6,6,2,506);p.fillRect(6,6,506,2);
   for(let i=0;i<16;i++){const x=rand()*512,h=15+rand()*60,g=p.createLinearGradient(0,5,0,h);g.addColorStop(0,'#3a443314');g.addColorStop(1,'#3a443100');p.fillStyle=g;p.fillRect(x,5,1+rand()*6,h);}
   for(let i=0;i<16;i++){const x=rand()*512,y=rand()*512;p.strokeStyle='#424b383d';p.lineWidth=.8;p.beginPath();p.moveTo(x,y);p.lineTo(x+9,y+13);p.lineTo(x+3,y+28);p.stroke();}
   panelMap=new THREE.CanvasTexture(surface);panelMap.colorSpace=THREE.SRGBColorSpace;panelMap.wrapS=panelMap.wrapT=THREE.RepeatWrapping;
@@ -75,4 +74,22 @@ export function addRussianDetails(root,kind='street',variant=0){
   for(const offset of[0,13]){sign(6,offset+2.15,2.15,-3.205,.48,.16);sign(2,offset+6.9,2.37,-3.16,1.02,.22);for(let i=0;i<6;i++)sign(i%2?4:3,offset+6.6+i%2*.48,2.13-Math.floor(i/2)*.37,-3.205,.35,.29);sign(7,offset+.95,1.8,-3.44,.55,.27);counts.notices+=6;}
  }
  for(const [mat,geometries]of parts){const geometry=mergeGeometries(geometries);geometries.forEach(g=>g.dispose());const mesh=new THREE.Mesh(geometry,mat);mesh.name=mat.name;mesh.castShadow=mat!==m.signs;mesh.receiveShadow=true;group.add(mesh);}group.userData={...counts,style:'Russian residential neighborhood'};root.add(group);return group;
+}
+
+export function panelJointLayout(anchors){
+ const front=anchors.filter(a=>Math.abs(a.angle??0)<.1),planes=[];
+ for(const a of front){let plane=planes.find(p=>Math.abs(p.z-a.z)<.15);if(!plane){plane={z:a.z,anchors:[]};planes.push(plane);}plane.anchors.push(a);}
+ const lines=[];
+ for(const plane of planes){const list=plane.anchors,rows=[],columns=[];
+  for(const a of [...list].sort((a,b)=>a.y-b.y)){let row=rows.find(r=>Math.abs(r.center-a.y)<.7);if(!row){row={center:a.y,top:-Infinity,bottom:Infinity};rows.push(row);}row.top=Math.max(row.top,a.y+a.h/2);row.bottom=Math.min(row.bottom,a.y-a.h/2);}
+  for(const a of [...list].sort((a,b)=>a.x-b.x)){let col=columns.find(c=>Math.abs(c.center-a.x)<.5);if(!col){col={center:a.x,left:Infinity,right:-Infinity};columns.push(col);}col.left=Math.min(col.left,a.x-a.w/2);col.right=Math.max(col.right,a.x+a.w/2);}
+  const left=Math.min(...list.map(a=>a.x-a.w/2))-.5,right=Math.max(...list.map(a=>a.x+a.w/2))+.5;
+  for(let i=0;i<rows.length-1;i++)if(rows[i+1].bottom-rows[i].top>.07){const y=(rows[i].top+rows[i+1].bottom)/2;lines.push({x1:left,y1:y,x2:right,y2:y,z:plane.z});}
+  for(let i=0;i<columns.length-1;i++)if(columns[i+1].left-columns[i].right>.07){const x=(columns[i].right+columns[i+1].left)/2;lines.push({x1:x,y1:.5,x2:x,y2:7.8,z:plane.z});}
+ }return lines;
+}
+let jointMaterial;
+export function addPanelJoints(root){if(root.getObjectByName('Window_aligned_panel_joints'))return;const anchors=root.userData.windowAnchors??root.getObjectByName('Detailed_aged_windows')?.userData.windowAnchors??[],lines=panelJointLayout(anchors);if(!lines.length)return;root.updateMatrixWorld(true);const surfaces=[];root.traverse(o=>{if(!o.isMesh||!o.visible)return;let p=o.parent;while(p){if(!p.visible)return;p=p.parent;}surfaces.push(o);});const ray=new THREE.Raycaster(),positions=[];
+ for(const line of lines){const length=Math.hypot(line.x2-line.x1,line.y2-line.y1),steps=Math.ceil(length/.22);for(let i=0;i<steps;i++){const t=(i+.5)/steps,x=THREE.MathUtils.lerp(line.x1,line.x2,t),y=THREE.MathUtils.lerp(line.y1,line.y2,t);ray.set(new THREE.Vector3(x,y,2),new THREE.Vector3(0,0,-1));const hit=ray.intersectObjects(surfaces,false)[0];if(!hit||!(/Russian weathered concrete panels|Courtyard limestone/.test(hit.object.material?.name??''))||Math.abs(hit.point.z-line.z)>.35||hit.face.normal.clone().transformDirection(hit.object.matrixWorld).z<.9)continue;const dx=line.x1===line.x2?.007:length/steps*.51,dy=line.y1===line.y2?.007:length/steps*.51,z=hit.point.z+.004;positions.push(x-dx,y-dy,z,x+dx,y-dy,z,x+dx,y+dy,z,x-dx,y-dy,z,x+dx,y+dy,z,x-dx,y+dy,z);}}
+ if(!positions.length)return;jointMaterial??=new THREE.MeshStandardMaterial({name:'Recessed facade panel joints',color:'#51534b',transparent:true,opacity:.48,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();const mesh=new THREE.Mesh(g,jointMaterial);mesh.name='Window_aligned_panel_joints';mesh.receiveShadow=true;root.add(mesh);return mesh;
 }

@@ -264,8 +264,9 @@ plastic and the closed dumpster with a rounded, reinforced wheeled container.
 `src/hit-effects.js` pools 128 painted impact puffs, sparks and brief burst cores
 in one draw call. The palette follows attack type, updates freeze on pause, and
 no objects are allocated per hit. Spray uses smoother liquid geometry, round
-droplets and an organic puddle instead of a flat bright ring; barrel flames use a camera-facing painted silhouette with layered warm colors
-and pooled ember flecks. The approved green burp is retained.
+droplets and an organic puddle instead of a flat bright ring; barrel flames use upward-moving turbulence, uneven density, soft transparent
+edges, hot cores, faint smoke and pooled ember flecks. Physical impact bursts
+use red/orange palettes; burp effects keep their green palette. The approved green burp is retained.
 
 
 Paving uses matte worn concrete maps and dark segmented kerbs. Rounded side paths
@@ -276,3 +277,15 @@ clear of the fire barrel. Entrance fixtures use curved glass, guards and screws;
 ceiling geometry casts shadows, and two downward spotlights avoid illuminating
 upper stairwell seams. Aged paper and cast-iron radiator sections replace the
 bright flat notices and radiator blocks. No extra shadow-casting lights are used.
+
+
+The shared painted visual style now also covers paving, brick, plaster and steel:
+`paving-painted.jpg`, `brick-painted.jpg`, `facade-painted.jpg` and
+`metal-painted.jpg` in `public/models`. These reference-style generated albedos
+load before the game starts and are embedded into the standalone build. Paving
+uses 0.5 m tiles and kerbs sample the concrete interior without a tile grid.
+Concrete facade maps contain no baked panel grid: `panelJointLayout` derives
+joints from gaps between complete window rows/columns and projects them only on
+exposed concrete. Concrete uses blended world-space texture samples to hide
+repeats; brick retains its running bond. The plinth uses matte mottled concrete
+instead of the striped imported foundation texture.
