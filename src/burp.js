@@ -20,10 +20,10 @@ export class BurpEffect{
     float a=seedCloud+clock*.27;mat2 turn=mat2(cos(a),-sin(a),sin(a),cos(a));
     vec2 q=turn*p*3.+vec2(seedCloud,clock*.12);
     float n=noise(q)*.57+noise(q*2.1)*.28+noise(q*4.3)*.15;
-    float edge=1.-smoothstep(.35,1.,length(p)+(n-.5)*.3);
-    float density=edge*mix(.25,.85,n);float alpha=density*alphaCloud;
+    float edge=1.-smoothstep(.68,.94,length(p)+(n-.5)*.48);
+    float density=edge*mix(.68,1.,smoothstep(.22,.72,n));float alpha=density*alphaCloud;
     if(alpha<.005)discard;
-    vec3 shade=mix(vec3(.26,.32,.12),vec3(.65,.69,.32),clamp(n*.75+uvCloud.y*.35,0.,1.));
+    vec3 shade=mix(vec3(.035,.23,.008),vec3(.28,.72,.035),smoothstep(.3,.8,n*.6+uvCloud.y*.4));
     gl_FragColor=vec4(shade,alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -47,9 +47,9 @@ export class BurpEffect{
   this.lastAttack=active?elapsed:-1;
   let visible=0;
   for(let i=0;i<COUNT;i++){const p=this.particles[i],age=time-p.birth,t=age/LIFE,alive=t>=0&&t<1;
-   if(alive){visible++;const reach=1.95*(1-Math.exp(-2.3*age));this.point.copy(p.origin).addScaledVector(p.direction,reach);
-    const spread=.015+age*.18;this.point.x+=Math.cos(p.seed)*spread;this.point.z+=Math.sin(p.seed)*spread;this.point.y+=age*.18+Math.sin(p.seed+age*4)*spread*.65;
-    const size=.09+Math.pow(t,.7)*.65;this.scale.set(size*(1.05+.16*Math.sin(p.seed)),size,1);this.opacity.setX(i,smooth(0,.07,age)*(1-smooth(.38,.82,age))*.5);
+   if(alive){visible++;const reach=2.05*(1-Math.exp(-3.1*age));this.point.copy(p.origin).addScaledVector(p.direction,reach);
+    const spread=.012+age*.22;this.point.x+=Math.cos(p.seed)*spread;this.point.z+=Math.sin(p.seed)*spread;this.point.y+=age*.18+Math.sin(p.seed+age*4)*spread*.65;
+    const pulse=.88+.12*Math.sin(p.seed);const size=(.10+Math.pow(t,.65)*.78)*pulse;this.scale.set(size*(1.05+.16*Math.sin(p.seed)),size,1);this.opacity.setX(i,smooth(0,.035,age)*(1-smooth(.43,.82,age))*.82);
    }else{this.scale.set(0,0,0);this.opacity.setX(i,0);}
    this.matrix.compose(this.point,this.rotation,this.scale);this.cloud.setMatrixAt(i,this.matrix);
   }
