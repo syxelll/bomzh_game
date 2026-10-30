@@ -69,6 +69,8 @@ for action in list(bpy.data.actions):
   frames.append(values)
   measure.append({'frame':frame,**{name:[round(v,4) for v in (C@evaluated.matrix_world@evaluated.pose.bones[name].matrix).translation] for name in ['hand.l','hand.r','foot.l','foot.r','root.x'] if name in evaluated.pose.bones}})
  markers={m.name:round(m.frame-start) for m in action.pose_markers}
+ if clip_name.startswith('jab_') and clip_name.endswith('_combo') and 'hit' not in markers:
+  hand=max(['hand.r','hand.l'],key=lambda name:max(f[name][2]-f['root.x'][2] for f in measure)-(measure[0][name][2]-measure[0]['root.x'][2]));contact=max(measure,key=lambda f:f[hand][2]-f['root.x'][2]);markers['hit']=contact['frame']-start
  if clip_name.startswith('weapon_') and clip_name.endswith('_combo') and 'hit' not in markers:
   contact=max(measure,key=lambda f:f['hand.r'][2]-f['root.x'][2]);markers['hit']=contact['frame']-start
  if clip_name=='weapon_idle' and bpy.data.objects.get('scrab'):

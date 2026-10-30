@@ -8,7 +8,7 @@ for(const name of ['hobo','enemy','street']){
  const uri='data:model/gltf-binary;base64,'+bytes.toString('base64');
  js=js.replaceAll(new RegExp(`/models/${name}\\.glb(?:\\?[^\"'\\s]*)?`,'g'),uri);
 }
-const actionBytes=await fs.readFile(new URL('models/hobo-actions.json',root));js=js.replace(/\/models\/hobo-actions\.json(?:\?[^"']*)?/g,'data:application/json;base64,'+actionBytes.toString('base64'));
+for(const name of ['hobo-actions','enemy-actions']){const bytes=await fs.readFile(new URL(`models/${name}.json`,root));js=js.replaceAll(new RegExp(`/models/${name}\\.json(?:\\?[^"']*)?`,'g'),'data:application/json;base64,'+bytes.toString('base64'));}
 const cssPath=html.match(/<link rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/)[1];
 let css=await fs.readFile(new URL(cssPath.slice(1),root),'utf8');
 const font=await fs.readFile(new URL('fonts/neucha.ttf',root));css=css.replaceAll('/fonts/neucha.ttf','data:font/ttf;base64,'+font.toString('base64'));

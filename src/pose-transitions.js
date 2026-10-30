@@ -6,7 +6,7 @@ export function blendTransform(out,a,b,alpha){
  return out.compose(posA.lerp(posB,alpha),rotA.slerp(rotB,alpha).normalize(),scaleA.lerp(scaleB,alpha));
 }
 const handPart=/^(?:hand|(?:c_)?(?:thumb|index|middle|ring|pinky|pinkie))/;
-function virtualParent(name){
+export function virtualParent(name){
  const side=name.endsWith('.l')?'.l':name.endsWith('.r')?'.r':'';
  const stem=side?name.slice(0,-2):name;
  if(stem==='shoulder')return 'spine_03.x';
