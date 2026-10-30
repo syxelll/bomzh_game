@@ -230,8 +230,8 @@ remain in world space and dissipate after the authored attack. Animation time
 freezes emission, drift and noise on pause; changing characters clears the pool.
 
 Russian residential scenery is added by `src/russian-neighborhood.js`: weathered
-panel facades, enamel address plaques, steel entrance doors with intercoms,
-printed stairwell notices, courtyard announcement boards, painted pipe fencing
+panel facades, enamel address plaques, plain steel entrance doors,
+printed stairwell notices, courtyard announcement boards
 and a sandbox with a mushroom canopy in the laundry yard. Garage doors use
 reinforced hinged leaves. Elevated exterior fire escapes in the imported iron
 batches and frontage chain-link fencing are removed; existing windows and paving
@@ -244,24 +244,35 @@ simulation clock and world-space lamp index, so the light on walls dims with the
 bulb. Pause freezes the effect; no additional lights or shadow maps are created.
 
 `src/painted-asphalt.js` replaces the old repeating crack/normal/roughness maps
-with seamless low-contrast brushwork and fine matte grain. A continuous
-world-space color field varies the surface across street modules and courtyards;
+with a generated reference-style charcoal texture (`public/models/asphalt-painted.jpg`).
+Four world-space samples use hashed offsets, rotations and scales with smooth
+blending, avoiding visible tile patterns across street modules and courtyards;
 all asphalt uses one shared material and keeps the matched road UVs. Imported
 windows reuse their existing stone sills; newly generated windows keep procedural
 sills, preventing doubled projecting ledges at facade bands.
 
 Scenery cleanup: the shared grime atlas now has 16 irregular variants, with
 seeded nonuniform placement, window-based runoff, mirroring and per-world-section
-variation. Base panel runoff is subtle. Door leaves keep their intercoms but omit
+variation. Base panel runoff is subtle. Door leaves omit intercoms and
 the extra plaques/cross handles; address signs sit beside the opening, clear of
-canopies. Courtyard approaches lead directly to the rear entrance at x=15.15;
-planters are smaller, grass is sparse, and stalls/garages/workshop/sports equipment
-leave this corridor clear.
+canopies. The protruding entrance paving spur is removed.
+Planters are smaller, grass is sparse, and stalls/garages/workshop/sports equipment
+leave entrance access clear.
 
 `src/trash-details.js` replaces imported faceted bags with smooth creased tied
 plastic and the closed dumpster with a rounded, reinforced wheeled container.
 `src/hit-effects.js` pools 128 painted impact puffs, sparks and brief burst cores
 in one draw call. The palette follows attack type, updates freeze on pause, and
 no objects are allocated per hit. Spray uses smoother liquid geometry, round
-droplets and an organic puddle instead of a flat bright ring; barrel flames have
-additional density detail. The approved green burp is retained.
+droplets and an organic puddle instead of a flat bright ring; barrel flames use a camera-facing painted silhouette with layered warm colors
+and pooled ember flecks. The approved green burp is retained.
+
+
+Paving uses matte worn concrete maps and dark segmented kerbs. Rounded side paths
+join the wing sidewalks to the rear footpath, with matched world UVs and edge
+dust strips. The front open dumpster, orphan bin lids and floating overflow are
+hidden; five glossy crumpled bags sit on the ground beside the closed dumpster,
+clear of the fire barrel. Entrance fixtures use curved glass, guards and screws;
+ceiling geometry casts shadows, and two downward spotlights avoid illuminating
+upper stairwell seams. Aged paper and cast-iron radiator sections replace the
+bright flat notices and radiator blocks. No extra shadow-casting lights are used.

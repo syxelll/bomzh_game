@@ -6,7 +6,7 @@ export function courtyardPaving(source){source.updateMatrixWorld(true);const bat
  function clip(points,distance){const out=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],da=distance(a.p),db=distance(b.p);if(da>=-1e-6)out.push(a);if((da>=0)!==(db>=0)){const t=da/(da-db);out.push({p:a.p.clone().lerp(b.p,t),n:a.n.clone().lerp(b.n,t).normalize(),uv:a.uv.clone().lerp(b.uv,t)});}}return out;}
  source.traverse(mesh=>{if(!mesh.isMesh||mesh.material?.name!=='Pavement tiles')return;const g=mesh.geometry,p=g.attributes.position,n=g.attributes.normal,uv=g.attributes.uv,index=g.index;if(!uv)return;const normal=new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);if(!batches.has(mesh.material))batches.set(mesh.material,{p:[],n:[],uv:[]});const out=batches.get(mesh.material);
   for(let i=0;i<(index?.count??p.count);i+=3){const triangle=[0,1,2].map(j=>{const k=index?index.getX(i+j):i+j;return {p:new THREE.Vector3().fromBufferAttribute(p,k).applyMatrix4(mesh.matrixWorld),n:new THREE.Vector3().fromBufferAttribute(n,k).applyMatrix3(normal).normalize(),uv:new THREE.Vector2().fromBufferAttribute(uv,k)};});
-   for(const region of['front','left','right']){let poly=clip(triangle,point=>region==='front'?point.z-2.35:-1.8-point.z);if(region!=='front')poly=clip(poly,point=>region==='left'?4.4+(point.z+3.6)*.9-point.x:point.x-(26-4.4-(point.z+3.6)*.9));
+   for(const region of['front','left','right']){let poly=clip(triangle,point=>region==='front'?point.z-2.35:-1.8-point.z);if(region!=='front')poly=clip(poly,point=>region==='left'?4.5-point.x:point.x-21.5);
     for(let j=1;j<poly.length-1;j++)for(const v of[poly[0],poly[j],poly[j+1]]){out.p.push(...v.p.toArray());out.n.push(...v.n.toArray());out.uv.push(...v.uv.toArray());}
    }
   }

@@ -9,8 +9,9 @@ function materials(){
  if(typeof document!=='undefined'){
   const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=1024;const c=canvas.getContext('2d');
   const cards=[['УЛИЦА','ДВОРОВАЯ, 7'],['ПОДЪЕЗД 1','КВ. 1–20'],['ОБЪЯВЛЕНИЯ','УК «НАШ ДОМ»'],['УВАЖАЕМЫЕ ЖИЛЬЦЫ','СОБЛЮДАЙТЕ ЧИСТОТУ'],['САНТЕХНИК','РЕМОНТ · ВЫЗОВ МАСТЕРА'],['ГАРАЖ № 12','ПОСТОРОННИМ НЕ ВХОДИТЬ'],['1 ЭТАЖ','КВАРТИРЫ 1–8'],['ДВЕРЬ ЗАКРЫВАЙТЕ','БЕРЕГИТЕ ТЕПЛО']];
-  for(let i=0;i<8;i++){const x=i%2*512,y=Math.floor(i/2)*256;c.save();c.translate(x,y);c.fillStyle=i===0?'#254c79':i===1?'#244a3a':'#d4cbb1';c.fillRect(0,0,512,256);c.strokeStyle=i<2?'#c7d2c3':'#777567';c.lineWidth=6;c.strokeRect(12,12,488,232);c.fillStyle=i<2?'#e2e0cf':'#343b35';c.textAlign='center';c.font='bold 28px Arial';c.fillText(cards[i][0],256,90);c.font=`bold ${i===0?44:26}px Arial`;c.fillText(cards[i][1],256,145);
+  for(let i=0;i<8;i++){const x=i%2*512,y=Math.floor(i/2)*256;c.save();c.translate(x,y);c.fillStyle=i===0?'#254c79':i===1?'#244a3a':['#a69a7d','#aaa084','#9b927b','#b2a386'][i%4];c.fillRect(0,0,512,256);c.strokeStyle=i<2?'#c7d2c3':'#777567';c.lineWidth=6;c.strokeRect(12,12,488,232);c.fillStyle=i<2?'#e2e0cf':'#343b35';c.textAlign='center';c.font='bold 28px Arial';c.fillText(cards[i][0],256,90);c.font=`bold ${i===0?44:26}px Arial`;c.fillText(cards[i][1],256,145);
    if(i>1){c.font='18px Arial';c.fillText(i===4?'С 9:00 ДО 18:00 · БЕЗ ВЫХОДНЫХ':'ИНФОРМАЦИЯ ДЛЯ ЖИТЕЛЕЙ',256,190);for(let n=0;n<9;n++){c.fillStyle='#424b3925';c.fillRect(38+n*49,220,1,26);}}
+   if(i>1){for(let stain=0;stain<12;stain++){const xx=(stain*73+i*31)%512,yy=(stain*47+i*19)%256,g=c.createRadialGradient(xx,yy,2,xx,yy,18+stain%4*7);g.addColorStop(0,'#594c2b28');g.addColorStop(1,'#594c2b00');c.fillStyle=g;c.fillRect(xx-40,yy-40,80,80);}c.strokeStyle='#5e573a45';c.lineWidth=1;c.beginPath();c.moveTo(245,10);c.lineTo(249,247);c.stroke();c.strokeStyle='#d5c6a53b';c.beginPath();c.moveTo(251,10);c.lineTo(255,247);c.stroke();c.fillStyle='#56523b3a';c.fillRect(0,0,512,7);c.fillRect(0,249,512,7);}
    for(let n=0;n<100;n++){const xx=(n*71.37)%512,yy=(n*43.19)%256;c.fillStyle=n%2?'#3e422f35':'#e8dfbe45';c.fillRect(xx,yy,n%7+1,n%3+1);}for(const xx of[24,488])for(const yy of[24,232]){c.fillStyle='#46493d';c.beginPath();c.arc(xx,yy,4,0,7);c.fill();}c.restore();
   }
   atlas=new THREE.CanvasTexture(canvas);atlas.colorSpace=THREE.SRGBColorSpace;
@@ -55,10 +56,7 @@ export function addRussianDetails(root,kind='street',variant=0){
  const entrance=(x,z,w=.95,h=2)=>{
   box(w-.03,h-.04,.045,m.green,x,h/2,z);for(const dx of[-w/2,w/2])box(.035,h+.04,.09,m.metal,x+dx,h/2,z+.02);
   box(w,.035,.09,m.metal,x,h,z+.02);
-  const cx=x+w*.32;box(.13,.28,.045,m.metal,cx,1.22,z+.05);box(.085,.035,.012,m.rubber,cx,1.3,z+.08);
-  for(let row=0;row<4;row++)for(let col=0;col<3;col++)box(.016,.012,.012,m.trim,cx-.028+col*.028,1.24-row*.03,z+.08);
-  // Plain steel leaf; the intercom remains at the edge of the door.
-  box(w*.85,.25,.016,m.metal,x,.19,z+.03);counts.intercoms++;
+  box(w*.85,.25,.016,m.metal,x,.19,z+.03);
  };
  if(kind==='street'){
   for(const x of[3.25,9.75,16.25,22.75])entrance(x,-3.96);
@@ -69,12 +67,10 @@ export function addRussianDetails(root,kind='street',variant=0){
   box(.94,.26,.03,m.blue,24.9,2.55,-3.43);sign(0,24.9,2.55,-3.41,.9,.22);
   // Notices are mounted on a freestanding board, away from every window and doorway.
   const x=variant%2?19.2:6.1,z=-4.35;for(const dx of[-.54,.54])rod([x+dx,0,z],[x+dx,2.05,z],.025,m.metal);box(1.25,1.25,.11,m.blue,x,1.45,z);box(1.1,1.1,.025,m.wood,x,1.45,z+.065);sign(2,x,1.91,z+.085,1.02,.22);for(let i=0;i<4;i++)sign(i%2?4:3,x-.27+i%2*.54,1.55-Math.floor(i/2)*.4,z+.087,.46,.34);counts.notices=4;
-  // Low painted pipe fencing and half-buried tyres belong to the background, outside the combat lane.
-  for(const bx of([3,4,5,6].includes(variant)?[]:[variant%2?5.6:20.4])){for(const dx of[-.82,.82])rod([bx+dx,0,-5.12],[bx+dx,.52,-5.12],.025,m.green);for(const yy of[.17,.43])rod([bx-.82,yy,-5.12],[bx+.82,yy,-5.12],.02,m.green);}
   if(variant===0){const x=17.6,z=-4.9;box(2.1,.12,1.7,m.soil,x,.06,z);for(const dz of[-.88,.88])box(2.25,.22,.12,m.blue,x,.14,z+dz);for(const dx of[-1.06,1.06])box(.12,.22,1.7,m.green,x+dx,.14,z);
    rod([x,0,z],[x,2.1,z],.065,m.wood);const roof=new THREE.ConeGeometry(1.12,.48,24);add(roof,m.green,x,2.15,z);const band=new THREE.TorusGeometry(1.1,.035,5,24);band.rotateX(Math.PI/2);add(band,m.blue,x,1.92,z);counts.playground++;
   }
-  if(variant===3){for(const x of[7,11,19]){box(.045,2.15,.035,m.trim,x,1.12,-5.785);for(const dx of[-1.3,1.3])for(const yy of[.55,1.75])box(.17,.055,.06,m.rubber,x+dx,yy,-5.76);sign(5,x,1.67,-5.755,.9,.4);}}
+  if(variant===3){for(const x of[7.3,11,18.7]){box(.045,2.15,.035,m.trim,x,1.12,-5.785);for(const dx of[-1.3,1.3])for(const yy of[.55,1.75])box(.17,.055,.06,m.rubber,x+dx,yy,-5.76);sign(5,x,1.67,-5.755,.9,.4);}}
  }else{
   for(const offset of[0,13]){sign(6,offset+2.15,2.15,-3.205,.48,.16);sign(2,offset+6.9,2.37,-3.16,1.02,.22);for(let i=0;i<6;i++)sign(i%2?4:3,offset+6.6+i%2*.48,2.13-Math.floor(i/2)*.37,-3.205,.35,.29);sign(7,offset+.95,1.8,-3.44,.55,.27);counts.notices+=6;}
  }

@@ -1,3 +1,4 @@
+import {propMaterials} from './prop-materials.js';
 import {createAgedWindowSet} from './aged-windows.js';
 import * as THREE from 'three';
 export {locationForStage} from './route.js';
@@ -9,7 +10,8 @@ export function createEntrance(){
  const root=new THREE.Group();root.name='Entrance_26m';const windows=createAgedWindowSet();const tex=textures(),unit=new THREE.BoxGeometry(1,1,1),cylinder=new THREE.CylinderGeometry(.022,.022,1,6),batches=new Map();
  const material=(name,color,map=null,extra={})=>{const m=new THREE.MeshStandardMaterial({color,map,roughness:.94,...extra});m.name=name;return m;};
  if(tex.floor)tex.floor.repeat.set(6.5,5.75);if(tex.wall)tex.wall.repeat.set(3,1.5);
- const plaster=material('Entrance aged plaster','#d9cead',tex.wall),paint=material('Entrance chipped green paint','#748774',tex.wall),floor=material('Entrance terrazzo','#b3b0a0',tex.floor),concrete=material('Entrance concrete stairs','#8e9182',tex.wall),metal=material('Entrance painted steel','#4b5c57',null,{metalness:.3}),dark=material('Entrance recess','#282e29'),wood=material('Entrance doors','#695c44',tex.wall),paper=material('Entrance paper','#e4d9ba'),glass=material('Entrance window glass','#455c66',null,{emissive:'#526f7c',emissiveIntensity:.45}),lamp=material('Entrance warm lamps','#e4cd8a',null,{emissive:'#ffbf60',emissiveIntensity:2});
+ const plaster=material('Entrance aged plaster','#d9cead',tex.wall),paint=material('Entrance chipped green paint','#748774',tex.wall),floor=material('Entrance terrazzo','#b3b0a0',tex.floor),concrete=material('Entrance concrete stairs','#8e9182',tex.wall),metal=material('Entrance painted steel','#4b5c57',null,{metalness:.3}),dark=material('Entrance recess','#282e29'),wood=material('Entrance doors','#695c44',tex.wall),paper=material('Entrance paper','#a99d7f'),glass=material('Entrance window glass','#455c66',null,{emissive:'#526f7c',emissiveIntensity:.45}),lamp=material('Entrance warm lamps','#aa9875',null,{emissive:'#ffbf60',emissiveIntensity:.65});
+ const radiator=propMaterials().metal.clone();radiator.name='Entrance rusty cast iron radiator';radiator.color.set('#b3a17d');radiator.roughness=.95;
  function add(geometry,mat,position,scale,rotation=null,shadow=true){const mesh=new THREE.Mesh(geometry,mat);mesh.position.fromArray(position);mesh.scale.fromArray(scale);if(rotation)mesh.rotation.set(...rotation);mesh.updateMatrix();const key=geometry.uuid+mat.uuid+shadow;if(!batches.has(key))batches.set(key,{geometry,mat,shadow,meshes:[]});batches.get(key).meshes.push(mesh);return mesh;}
  const box=(name,w,h,d,mat,x,y,z,rot=null,shadow=true)=>{const mesh=add(unit,mat,[x,y,z],[w,h,d],rot,shadow);mesh.name=name;return mesh;};
  box('Continuous level floor',26,.16,23,floor,13,-.08,2.5,null,false);
@@ -18,7 +20,7 @@ export function createEntrance(){
   for(const [x,w]of [[3.95,7.9],[12.35,1.3]]){box('Plaster upper wall',w,3.1,.24,plaster,offset+x,2.85,-3.6);box('Green lower wall',w,1.3,.25,paint,offset+x,.65,-3.59);box('Skirting',w,.14,.29,metal,offset+x,.07,-3.55);box('Paint border',w,.045,.28,metal,offset+x,1.3,-3.55);}
   // Close the sides and ceiling of the recess: the oblique camera must not see sky through it.
   for(const sideX of [7.88,11.72]){box('Stairwell side plaster',.2,3.2,3.15,plaster,offset+sideX,2.9,-5.05);box('Stairwell side green paint',.22,1.3,3.15,paint,offset+sideX,.65,-5.05);}
-  box('Stairwell ceiling',4,.16,3.25,plaster,offset+9.8,4.5,-5.05,null,false);
+  box('Stairwell ceiling',4,.16,3.25,plaster,offset+9.8,4.5,-5.05,null,true);
   box('Stairwell back wall',3.8,4.5,.2,plaster,offset+9.8,2.25,-6.5);box('Stairwell landing',3.8,.16,1,concrete,offset+9.8,1.68,-6.05);
   for(let step=0;step<12;step++){const height=(step+1)*.14,z=-3.7-step*.2;box('Stair tread',2.15,height,.22,concrete,offset+9.8,height/2,z);for(const side of [-1,1]){const x=offset+9.8+side*1.12;box('Stair baluster',.035,.85,.035,metal,x,height+.425,z);}}
   for(const side of [-1,1]){const a=new THREE.Vector3(offset+9.8+side*1.12,.96,-3.7),b=new THREE.Vector3(a.x,2.5,-5.9),length=a.distanceTo(b),mesh=add(cylinder,metal,a.clone().add(b).multiplyScalar(.5).toArray(),[1,length,1]);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.sub(a).normalize());mesh.updateMatrix();}
@@ -27,10 +29,18 @@ export function createEntrance(){
   for(let row=0;row<2;row++)for(let col=0;col<4;col++){const x=offset+4.3+col*.39,y=1.15+row*.42;box('Mailbox frame',.38,.4,.21,dark,x,y,-3.35);box('Mailbox door',.34,.35,.025,col%3?metal:paint,x,y,-3.23);box('Mailbox letter slot',.23,.025,.015,dark,x,y+.1,-3.207);box('Mailbox label',.1,.04,.018,paper,x,y-.07,-3.2);}
   box('Noticeboard frame',1.3,1.45,.12,wood,offset+6.9,1.8,-3.35);box('Noticeboard backing',1.17,1.3,.03,dark,offset+6.9,1.8,-3.27);for(let n=0;n<6;n++){const x=offset+6.6+(n%2)*.48,y=2.13-Math.floor(n/2)*.37;box('Paper notices',.36,.3,.015,paper,x,y,-3.24,[0,0,(n%3-1)*.06]);for(let line=0;line<3;line++)box('Notice ink',.24,.012,.018,metal,x,y+.06-line*.045,-3.23);}
   for(const [col,wx]of [2.15,5.1].entries())windows.add(offset+wx,3.28,-3.475,1.7,1.12,0,bay*3+col+1);
-  box('Ceiling edge',13,.24,.38,concrete,offset+6.5,4.35,-3.5,null,false);box('Ceiling soffit',13,.13,4.8,plaster,offset+6.5,4.5,-1.1,null,false);
-  box('Lamp bracket',.32,.1,.35,metal,offset+4,3.92,-3.21);box('Warm bulkhead lamp',.21,.26,.12,lamp,offset+4,3.73,-3.15,null,false);
+  box('Ceiling edge',13,.24,.38,concrete,offset+6.5,4.35,-3.5,null,true);box('Ceiling soffit',13,.13,4.8,plaster,offset+6.5,4.5,-1.1,null,true);
+  const lx=offset+4,ly=3.73;
+  add(new THREE.SphereGeometry(1,16,12),metal,[lx,ly,-3.29],[.19,.24,.07]);
+  add(new THREE.SphereGeometry(1,20,14),lamp,[lx,ly,-3.21],[.145,.185,.085],null,false);
+  for(const dx of[-.15,.15])box('Lamp mounting screw',.025,.025,.04,metal,lx+dx,ly,-3.20);
+  for(const yy of[-.10,0,.10])box('Lamp protective grille',.27,.016,.025,metal,lx,ly+yy,-3.12);
+  for(const dx of[-.08,.08])box('Lamp protective grille upright',.016,.34,.02,metal,lx+dx,ly,-3.12);
+  box('Lamp wire conduit',.028,.5,.025,metal,lx,4.12,-3.43);
   for(let pipe=0;pipe<2;pipe++)box('Old heating pipe',.055,3.8,.055,metal,offset+.45+pipe*.13,1.9,-3.28);
-  for(let n=0;n<7;n++)box('Radiator section',.08,.6,.18,paper,offset+6.15+n*.11,.46,-3.25);
+  const bend=new THREE.TorusGeometry(.026,.019,6,12,Math.PI);
+  for(let n=0;n<7;n++){const rx=offset+6.15+n*.11;for(const dx of[-.026,.026])add(cylinder,radiator,[rx+dx,.46,-3.15],[.85,.48,.85]);add(bend,radiator,[rx,.70,-3.15],[1,1,1]);add(bend,radiator,[rx,.22,-3.15],[1,1,1],[0,0,Math.PI]);for(const yy of[.27,.65])box('Radiator connecting pipe',.12,.04,.05,radiator,rx,yy,-3.22);}
+  for(const dx of[-.15,.85])box('Radiator wall bracket',.05,.21,.16,metal,offset+6.15+dx,.31,-3.30);
   for(let n=0;n<7;n++)box('Scattered paper',.16,.007,.12,paper,offset+1+n*1.7,.009,n%2?2.5:-2.65,[0,n*.8,0],false);
  }
  for(const {geometry,mat,shadow,meshes}of batches.values()){const batch=new THREE.InstancedMesh(geometry,mat,meshes.length);for(let i=0;i<meshes.length;i++)batch.setMatrixAt(i,meshes[i].matrix);batch.castShadow=shadow;batch.receiveShadow=true;batch.computeBoundingSphere();batch.name=mat.name;root.add(batch);}
