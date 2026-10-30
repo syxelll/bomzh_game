@@ -228,3 +228,17 @@ The burp cloud uses 48 pooled billboard puffs in one instanced draw call, with
 procedural density and soft irregular edges. Puffs emit from the skinned mouth,
 remain in world space and dissipate after the authored attack. Animation time
 freezes emission, drift and noise on pause; changing characters clears the pool.
+
+Russian residential scenery is added by `src/russian-neighborhood.js`: weathered
+panel facades, enamel address plaques, steel entrance doors with intercoms,
+printed stairwell notices, courtyard announcement boards, painted pipe fencing
+and a sandbox with a mushroom canopy in the laundry yard. Garage doors use
+reinforced hinged leaves. Elevated exterior fire escapes in the imported iron
+batches and frontage chain-link fencing are removed; existing windows and paving
+are retained. One shared 1024 px sign atlas and merged material batches keep the
+procedural details inexpensive. Decor remains outside the combat lane.
+
+Entrance lamps flicker independently with brief irregular dips roughly every
+7–9 seconds. Fixture emission and the existing two local lights use the same
+simulation clock and world-space lamp index, so the light on walls dims with the
+bulb. Pause freezes the effect; no additional lights or shadow maps are created.
