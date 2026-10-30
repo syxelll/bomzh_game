@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {joystickVector} from '../src/virtual-joystick.js';
+test('joystick has a deadzone, proportional walking and bounded diagonal running',()=>{assert.deepEqual(joystickVector(1,1,40),{x:0,y:0});const half=joystickVector(20,0,40);assert.ok(half.x>0&&half.x<.65);assert.equal(half.y,0);const full=joystickVector(80,-80,40);assert.ok(Math.abs(Math.hypot(full.x,full.y)-1)<1e-9);assert.ok(full.x>0&&full.y<0);});

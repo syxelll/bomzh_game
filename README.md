@@ -216,3 +216,10 @@ UV-безопасный LOD: `node scripts/simplify-character.mjs INPUT.glb OUTP
 Уличная табличка заменена на потёртую эмалированную, с рамкой и крепежом. Размещение проверяет свободную кладку по всей площади: окна, двери и другие предметы не используются как поверхность для вывески.
 
 Анимации героя обновлены из `hobo-oct30-update.blend` (SHA256 `3dcc132f23870e8aabf4512fb41d6e5e74ce96fd4d23b32fe09337d4300e9bea`). Для воспроизведения экспорта: `export_user_actions.py -- --source /workspace/model-sources/hobo-oct30-update.blend --baseline /workspace/model-exports/hobo-oct29/hobo-oct29_baked.blend`, затем `node scripts/retarget-enemy-actions.mjs`. Для ударов руками без маркера `hit` экспортёр определяет ударяющую руку по приросту выдвижения от начальной позы; это не путает уже вытянутую руку предыдущего удара комбо со следующим ударом. Видимая модель и запечённые текстуры не заменяются при обновлении только Actions.
+
+Movement: WASD/arrows use the authored `run` Action by default; hold Shift for
+`walk`. On touch screens the circular joystick controls direction and speed:
+small deflection walks, full deflection runs. Both gaits sample by distance using
+their own measured stride. Weapon locomotion keeps the complete authored upper
+body relative to the moving pelvis, including shoulders, hands and clothing.
+The compact HUD keeps full keyboard help in the pause dialog.
