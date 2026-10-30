@@ -242,3 +242,26 @@ Entrance lamps flicker independently with brief irregular dips roughly every
 7–9 seconds. Fixture emission and the existing two local lights use the same
 simulation clock and world-space lamp index, so the light on walls dims with the
 bulb. Pause freezes the effect; no additional lights or shadow maps are created.
+
+`src/painted-asphalt.js` replaces the old repeating crack/normal/roughness maps
+with seamless low-contrast brushwork and fine matte grain. A continuous
+world-space color field varies the surface across street modules and courtyards;
+all asphalt uses one shared material and keeps the matched road UVs. Imported
+windows reuse their existing stone sills; newly generated windows keep procedural
+sills, preventing doubled projecting ledges at facade bands.
+
+Scenery cleanup: the shared grime atlas now has 16 irregular variants, with
+seeded nonuniform placement, window-based runoff, mirroring and per-world-section
+variation. Base panel runoff is subtle. Door leaves keep their intercoms but omit
+the extra plaques/cross handles; address signs sit beside the opening, clear of
+canopies. Courtyard approaches lead directly to the rear entrance at x=15.15;
+planters are smaller, grass is sparse, and stalls/garages/workshop/sports equipment
+leave this corridor clear.
+
+`src/trash-details.js` replaces imported faceted bags with smooth creased tied
+plastic and the closed dumpster with a rounded, reinforced wheeled container.
+`src/hit-effects.js` pools 128 painted impact puffs, sparks and brief burst cores
+in one draw call. The palette follows attack type, updates freeze on pause, and
+no objects are allocated per hit. Spray uses smoother liquid geometry, round
+droplets and an organic puddle instead of a flat bright ring; barrel flames have
+additional density detail. The approved green burp is retained.

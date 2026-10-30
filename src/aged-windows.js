@@ -21,10 +21,10 @@ function materials(){
  }
  palette={paint:new THREE.MeshStandardMaterial({name:'Aged window chipped wood',color:'#c8c6ac',map:frameMap,roughness:.94}),pane:new THREE.MeshStandardMaterial({name:'Aged window dusty glass and curtains',color:paneMap?'#ffffff':'#485448',map:paneMap,roughness:.76,metalness:.04}),recess:new THREE.MeshStandardMaterial({name:'Aged window recess and fittings',color:'#353b32',roughness:.9}),drips:new THREE.MeshStandardMaterial({name:'Aged window sill runoff',map:dripMap,transparent:true,opacity:.8,depthWrite:false,roughness:1,alphaTest:.015,polygonOffset:true,polygonOffsetFactor:-3})};return palette;
 }
-export function createAgedWindowSet(){
- const mat=materials(),parts=new Map(),cache=new Map(),stats={count:0,parts:0,styles:new Set()};
+export function createAgedWindowSet({sills=true}={}){
+ const mat=materials(),parts=new Map(),cache=new Map(),stats={count:0,parts:0,styles:new Set(),anchors:[]};
  const addPart=(geometry,material,transform)=>{if(!parts.has(material))parts.set(material,[]);parts.get(material).push(geometry.clone().applyMatrix4(transform));stats.parts++;};
- return {stats,add(x,y,z,w=1.3,h=1.5,angle=0,style=0){style=((style%8)+8)%8;stats.count++;stats.styles.add(style);const world=new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),angle),new THREE.Vector3(1,1,1));
+ return {stats,add(x,y,z,w=1.3,h=1.5,angle=0,style=0){style=((style%8)+8)%8;stats.count++;stats.anchors.push({x,y,z,w,h,angle});stats.styles.add(style);const world=new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),angle),new THREE.Vector3(1,1,1));
   const box=(bw,bh,bd,m,bx,by,bz)=>{const key=[bw,bh,bd].join(':');if(!cache.has(key))cache.set(key,new THREE.BoxGeometry(bw,bh,bd));addPart(cache.get(key),m,world.clone().multiply(new THREE.Matrix4().makeTranslation(bx,by,bz)));};
   const iw=w-.19,ih=h-.2;
   box(w-.04,h-.04,.025,mat.recess,0,0,.01);
@@ -33,14 +33,14 @@ export function createAgedWindowSet(){
   for(const bx of[-iw/2+.025,iw/2-.025])box(.04,ih,.085,mat.paint,bx,0,.085);for(const by of[-ih/2+.025,ih/2-.025])box(iw,.04,.085,mat.paint,0,by,.085);
   const split=style%3===1?.18*h:.1*h;box(iw,.055,.12,mat.paint,0,split,.11);box(.047,ih,.12,mat.paint,style%3===0?-.07:0,0,.11);
   box(.03,.105,.035,mat.recess,(style%3===0?-.07:0)+.012,-.17*h,.18);for(const by of[-.28*h,.3*h])box(.033,.075,.045,mat.recess,-w/2+.12,by,.17);
-  box(w+.2,.1,.38,mat.paint,0,-h/2-.04,.12);box(w+.1,.035,.28,mat.recess,0,-h/2-.105,.095);
+  if(sills){box(w+.2,.1,.38,mat.paint,0,-h/2-.04,.12);box(w+.1,.035,.28,mat.recess,0,-h/2-.105,.095);}
   if(mat.drips.map){const runoff=new THREE.PlaneGeometry(w+.12,.55);addPart(runoff,mat.drips,world.clone().multiply(new THREE.Matrix4().makeTranslation(0,-h/2-.34,.004)));runoff.dispose();}
- },finish(){const root=new THREE.Group();root.name='Detailed_aged_windows';for(const[material,geometries]of parts){const geometry=mergeGeometries(geometries);for(const p of geometries)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.name=material.name;mesh.castShadow=material!==mat.drips;mesh.receiveShadow=true;if(material===mat.drips)mesh.userData.noShadow=true;root.add(mesh);}for(const g of cache.values())g.dispose();root.userData.windowCount=stats.count;root.userData.windowStyles=stats.styles.size;return root;}};
+ },finish(){const root=new THREE.Group();root.name='Detailed_aged_windows';for(const[material,geometries]of parts){const geometry=mergeGeometries(geometries);for(const p of geometries)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.name=material.name;mesh.castShadow=material!==mat.drips;mesh.receiveShadow=true;if(material===mat.drips)mesh.userData.noShadow=true;root.add(mesh);}for(const g of cache.values())g.dispose();root.userData.windowAnchors=stats.anchors;root.userData.windowCount=stats.count;root.userData.windowStyles=stats.styles.size;return root;}};
 }
 // Find the authored glass quads, preserving the original building layout.
 export function detailAuthoredWindows(root){
  const existing=root.getObjectByName('Detailed_aged_windows');if(existing)return existing;
- root.updateMatrixWorld(true);const windows=createAgedWindowSet(),seen=new Set(),hide=[];
+ root.updateMatrixWorld(true);const windows=createAgedWindowSet({sills:false}),seen=new Set(),hide=[];
  root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const name=mesh.material.name;if(/COURT_Curtains/i.test(name)){hide.push(mesh);return;}if(!/COURT_SmokyGlass/i.test(name))return;const g=mesh.geometry,p=g.attributes.position,index=g.index;
  for(let i=0;i<(index?.count??p.count);i+=3){const points=[0,1,2].map(k=>new THREE.Vector3().fromBufferAttribute(p,index?index.getX(i+k):i+k).applyMatrix4(mesh.matrixWorld));const normal=points[1].clone().sub(points[0]).cross(points[2].clone().sub(points[0])).normalize();if(Math.abs(normal.z)<.98)continue;const box=new THREE.Box3().setFromPoints(points),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());if(size.x<.3||size.x>1.5||size.y<.5||size.y>2||size.z>.03)continue;const key=[center.x,center.y,center.z,size.x,size.y].map(v=>v.toFixed(2)).join(':');if(seen.has(key))continue;seen.add(key);windows.add(center.x,center.y,center.z+.02,size.x+.16,size.y+.16,0,seen.size%8);}
  hide.push(mesh);});

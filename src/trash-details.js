@@ -1,0 +1,30 @@
+import * as THREE from 'three';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {propMaterials} from './prop-materials.js';
+let bagGeometry,plastic;
+function bagResources(){
+ if(bagGeometry)return;bagGeometry=new THREE.SphereGeometry(1,32,24);const p=bagGeometry.attributes.position,uv=bagGeometry.attributes.uv;for(let i=0;i<p.count;i++){const t=(p.getY(i)+1)/2,a=uv.getX(i)*Math.PI*2,shape=Math.pow(Math.sin(Math.PI*t),.45)*(1-t*.38),fold=1+.065*Math.sin(a*11+t*17)+.025*Math.sin(a*23-t*9);p.setXYZ(i,Math.cos(a)*shape*fold*.60,Math.max(.015,t),Math.sin(a)*shape*fold*.60);}bagGeometry.computeVertexNormals();
+ let map=null,bump=null;if(typeof document!=='undefined'){const canvas=document.createElement('canvas');canvas.width=canvas.height=512;const c=canvas.getContext('2d');c.fillStyle='#252c28';c.fillRect(0,0,512,512);for(let x=0;x<512;x++){const v=Math.sin(x*.127)*.5+Math.sin(x*.29)*.25;c.fillStyle=`rgba(${v>0?'125,137,120':'0,0,0'},${Math.abs(v)*.10})`;c.fillRect(x,0,1,512);}for(let i=0;i<1300;i++){c.fillStyle=i%2?'#c0c7ac08':'#00000010';c.fillRect((i*71.31)%512,(i*49.13)%512,1+i%4,1);}map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;bump=map;}
+ plastic=new THREE.MeshStandardMaterial({name:'Creased dark plastic bags',map,bumpMap:bump,bumpScale:.012,color:map?'#ffffff':'#252c28',roughness:.56,metalness:0});
+}
+export function createTrashBag(width=.5,height=.6,depth=.45){bagResources();const root=new THREE.Group();root.name='Tied_wrinkled_trash_bag';const parts=[bagGeometry.clone().scale(width,height,depth)];
+ const neck=new THREE.CylinderGeometry(width*.035,width*.11,height*.14,12,3);neck.translate(0,height*.92,0);parts.push(neck);const knot=new THREE.SphereGeometry(width*.075,12,8);knot.scale(1,.65,.8);knot.translate(width*.02,height*.98,0);parts.push(knot);
+ for(const side of[-1,1]){const flap=new THREE.PlaneGeometry(width*.24,height*.19,3,3),p=flap.attributes.position;for(let i=0;i<p.count;i++)p.setZ(i,Math.sin(p.getX(i)*60)*width*.025);flap.rotateY(side*.65);flap.rotateZ(side*.5);flap.translate(side*width*.09,height*1.065,0);parts.push(flap);}const geometry=mergeGeometries(parts.map(g=>g.toNonIndexed()));parts.forEach(g=>g.dispose());const mesh=new THREE.Mesh(geometry,plastic);mesh.material.side=THREE.DoubleSide;mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return root;
+}
+export function createDetailedDumpster(w=1.65,h=1.15,d=.9){const root=new THREE.Group();root.name='Detailed_wheeled_dumpster';const {metal,trim}=propMaterials(),dark=new THREE.MeshStandardMaterial({color:'#222b26',roughness:.88}),parts=new Map();
+ const add=(g,m,x,y,z,angle=0)=>{if(angle)g.rotateZ(angle);g.translate(x,y,z);if(!parts.has(m))parts.set(m,[]);parts.get(m).push(g);};const box=(ww,hh,dd,m,x,y,z,round=.015)=>add(new RoundedBoxGeometry(ww,hh,dd,2,round),m,x,y,z);
+ box(w,h-.27,d,metal,0,(h+.13)/2,0,.04);box(w+.09,.08,d+.09,metal,0,h-.04,0,.025);box(w+.11,.055,d+.11,dark,0,h+.005,0,.018);box(w+.13,.065,d+.13,metal,0,h+.055,0,.025);
+ for(const x of[-w*.32,0,w*.32])box(.035,h*.61,.025,trim,x,h*.52,d/2+.018,.007);
+ for(const side of[-1,1]){box(.06,.1,d*.43,metal,side*(w/2+.04),h*.73,0);box(.12,.045,d*.30,trim,side*(w/2+.08),h*.73,0);for(const z of[-d*.3,d*.3]){box(.075,.17,.12,metal,side*w*.38,.15,z);const wheel=new THREE.CylinderGeometry(.095,.095,.06,16);wheel.rotateZ(Math.PI/2);add(wheel,dark,side*w*.38,.095,z);const hub=new THREE.CylinderGeometry(.035,.035,.065,12);hub.rotateZ(Math.PI/2);add(hub,trim,side*w*.38,.095,z);}}
+ for(const x of[-w*.3,w*.3])box(.2,.045,.13,trim,x,h+.075,-d/2+.02);box(.28,.055,.065,trim,0,h+.09,d*.42);box(.23,.07,.012,trim,0,h*.78,d/2+.032);
+ for(const[m,geometries]of parts){const geometry=mergeGeometries(geometries.map(g=>g.index?g.toNonIndexed():g));geometries.forEach(g=>g.dispose());const mesh=new THREE.Mesh(geometry,m);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);}return root;}
+// Split the imported merged bag batch by shared vertex positions, preserving locations.
+export function detailStreetTrash(root){if(root.getObjectByName('Detailed_street_trash'))return;root.updateMatrixWorld(true);const group=new THREE.Group();group.name='Detailed_street_trash';const originals=[];root.traverse(mesh=>{if(mesh.isMesh&&mesh.material?.name==='COURT_TrashBags')originals.push(mesh);});
+ for(const mesh of originals){const g=mesh.geometry,p=g.attributes.position,index=g.index,parent=new Map(),points=new Map();const find=x=>{while(parent.get(x)!==x){parent.set(x,parent.get(parent.get(x)));x=parent.get(x);}return x;};const vertexKeys=[];for(let i=0;i<p.count;i++){const v=new THREE.Vector3().fromBufferAttribute(p,i).applyMatrix4(mesh.matrixWorld),key=v.toArray().map(n=>n.toFixed(4)).join(',');vertexKeys.push(key);if(!parent.has(key)){parent.set(key,key);points.set(key,v);}}
+  for(let i=0;i<(index?.count??p.count);i+=3){const a=vertexKeys[index?index.getX(i):i];for(let j=1;j<3;j++){const b=vertexKeys[index?index.getX(i+j):i+j];parent.set(find(b),find(a));}}
+  const boxes=new Map();for(const [key,v]of points){const component=find(key);if(!boxes.has(component))boxes.set(component,new THREE.Box3());boxes.get(component).expandByPoint(v);}for(const bounds of boxes.values()){const s=bounds.getSize(new THREE.Vector3());if(s.x<.16||s.y<.16||s.z<.16)continue;const c=bounds.getCenter(new THREE.Vector3()),bag=createTrashBag(s.x,s.y*.94,s.z);bag.position.set(c.x,bounds.min.y,c.z);group.add(bag);}mesh.visible=false;
+ }
+ const dumpster=root.getObjectByName('DUMPSTER_0_0_GAME');if(dumpster){const box=new THREE.Box3().setFromObject(dumpster),s=box.getSize(new THREE.Vector3()),c=box.getCenter(new THREE.Vector3());const detailed=createDetailedDumpster(s.x,box.max.y,s.z);detailed.position.set(c.x,0,c.z);group.add(detailed);dumpster.visible=false;}
+ root.add(group);return group;
+}

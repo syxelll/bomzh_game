@@ -34,7 +34,7 @@ export function createEntrance(){
   for(let n=0;n<7;n++)box('Scattered paper',.16,.007,.12,paper,offset+1+n*1.7,.009,n%2?2.5:-2.65,[0,n*.8,0],false);
  }
  for(const {geometry,mat,shadow,meshes}of batches.values()){const batch=new THREE.InstancedMesh(geometry,mat,meshes.length);for(let i=0;i<meshes.length;i++)batch.setMatrixAt(i,meshes[i].matrix);batch.castShadow=shadow;batch.receiveShadow=true;batch.computeBoundingSphere();batch.name=mat.name;root.add(batch);}
- const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowCount=windows.stats.count;
+ const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowAnchors=windows.stats.anchors;root.userData.windowCount=windows.stats.count;
  return root;
 }
 export function swapLocation(street,template,x){const taken=new Map([...street.chunks].map(([i,c])=>[i,c.bottles.map(b=>b.taken)]));street.setEnvironment(template);street.update(x);for(const[i,c]of street.chunks){const previous=taken.get(i);if(previous)c.bottles.forEach((b,j)=>{if(previous[j]){b.taken=true;b.mesh.visible=false;}});}}

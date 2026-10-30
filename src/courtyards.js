@@ -20,7 +20,8 @@ export function createCourtyard(source,variant=0){
  box('Wing entrance door',1.42,2.4,.16,metal,23.2,1.2,-3.28);box('Wing entrance canopy',1.9,.1,.8,metal,23.2,2.65,-2.95);
  // Side windows face into the yard and make the gap read as real depth.
  for(const side of[-1,1])for(let row=0;row<3;row++)for(const [col,z]of[-5.2,-7.6].entries())windows.add(side<0?4.505:21.495,1.6+row*1.9,z,1.2,1.4,side<0?Math.PI/2:-Math.PI/2,row*3+col+variant+(side>0?4:0));
- box('Low rear path',17,.06,variant===1?.55:1.3,stone,13,.02,variant===1?-8.7:-7.5);
+ box('Rear facade footpath',17,.06,.85,stone,13,.02,-8.72);
+ if(variant!==1){box('Entrance approach',1.2,.05,5.0,stone,15.15,.015,-6.45);root.userData.entranceApproach={x:15.15,left:14.55,right:15.75,front:-3.95,rear:-8.95};}
  // A porch for the eventual entrance; no props occupy the combat lane.
  box('Rear porch door',1.3,2.35,.18,metal,15.15,1.175,-8.94);box('Porch canopy',2.1,.12,1.1,metal,15.15,2.65,-8.5);
  function door(x,z,w=1.3,h=2.35){
@@ -31,9 +32,9 @@ export function createCourtyard(source,variant=0){
   for(const yy of[.35,1.95])box('Door hinge',.055,.16,.08,metal,x-w/2+.04,yy,z+.16);
  }
  door(15.15,-8.94);door(23.2,-3.28,1.42,2.4);
- const bench=(x,z)=>{for(let i=0;i<4;i++)box('Separate bench seat plank',2,.075,.115,wood,x,.48+(i===2?.006:0),z-.2+i*.135);for(let i=0;i<3;i++)box('Separate bench back plank',2,.105,.07,wood,x,.68+i*.14,z-.28);for(const dx of[-.72,.72]){box('Bench legs',.075,.48,.075,metal,x+dx,.24,z-.18);box('Bench front legs',.075,.48,.075,metal,x+dx,.24,z+.18);box('Bench foot',.18,.06,.55,metal,x+dx,.04,z);box('Seat mounting rail',.09,.08,.55,metal,x+dx,.4,z);box('Back mounting rail',.07,.65,.06,metal,x+dx,.67,z-.32);for(const yy of[.68,.82,.96])box('Bench fasteners',.035,.035,.025,trim,x+dx,yy,z-.235);}};if(variant!==1)bench(7.6,-5.2);if(variant===0)bench(18.1,-6.3);
- function grassPatch(x,z,w,d,y){for(let row=0;row<Math.ceil(d/.22);row++)for(let col=0;col<Math.ceil(w/.22);col++)vegetation.grass(x-w/2+.1+col*.22,y,z-d/2+.1+row*.22);}
- for(const x of[5.6,20.4]){for(const dz of[-.65,.65])box('Planter long kerb',1.6,.28,.1,stone,x,.14,-5.9+dz);for(const dx of[-.75,.75])box('Planter end kerb',.1,.28,1.2,stone,x+dx,.14,-5.9);box('Planter soil',1.4,.07,1.2,earth,x,.24,-5.9);grassPatch(x,-5.9,1.3,1.1,.28);}
+ const bench=(x,z)=>{for(let i=0;i<4;i++)box('Separate bench seat plank',2,.075,.115,wood,x,.48+(i===2?.006:0),z-.2+i*.135);for(let i=0;i<3;i++)box('Separate bench back plank',2,.105,.07,wood,x,.68+i*.14,z-.28);for(const dx of[-.72,.72]){box('Bench legs',.075,.48,.075,metal,x+dx,.24,z-.18);box('Bench front legs',.075,.48,.075,metal,x+dx,.24,z+.18);box('Bench foot',.18,.06,.55,metal,x+dx,.04,z);box('Seat mounting rail',.09,.08,.55,metal,x+dx,.4,z);box('Back mounting rail',.07,.65,.06,metal,x+dx,.67,z-.32);for(const yy of[.68,.82,.96])box('Bench fasteners',.035,.035,.025,trim,x+dx,yy,z-.235);}};if(![1,3,5,6].includes(variant))bench(7.6,-5.2);if(variant===0)bench(18.1,-6.3);
+ function grassPatch(x,z,w,d,y){for(let row=0;row<Math.ceil(d/.32);row++)for(let col=0;col<Math.ceil(w/.32);col++){if((row*7+col*11+variant)%4!==0)vegetation.grass(x-w/2+.12+col*.32,y,z-d/2+.12+row*.32);};}
+ for(const x of([3,4,5,6].includes(variant)?[]:[variant%2?5.6:20.4])){for(const dz of[-.65,.65])box('Planter long kerb',1.6,.28,.1,stone,x,.14,-5.9+dz);for(const dx of[-.75,.75])box('Planter end kerb',.1,.28,1.2,stone,x+dx,.14,-5.9);box('Planter soil',1.4,.07,1.2,earth,x,.24,-5.9);grassPatch(x,-5.9,1.3,1.1,.28);}
  function crate(x,y,z,w=.7,h=.4,d=.65){for(const dz of[-d/2,d/2])for(let row=0;row<3;row++)box('Crate side slat',w,h/3-.02,.045,wood,x,y+row*h/3+h/6,z+dz);for(const dx of[-w/2,w/2])for(let row=0;row<3;row++)box('Crate end slat',.045,h/3-.02,d,wood,x+dx,y+row*h/3+h/6,z);for(const dx of[-w/2+.04,w/2-.04])for(const dz of[-d/2+.04,d/2-.04])box('Crate corner support',.06,h,.06,wood,x+dx,y+h/2,z+dz);for(let i=0;i<4;i++)box('Crate floor plank',w/4-.015,.035,d,wood,x-w/2+(i+.5)*w/4,y+.025,z);}
 
  if(variant===0){for(const x of[10.8,13.1])box('Clothes line posts',.06,3,.06,metal,x,1.5,-6.3);box('Clothes line',2.3,.022,.022,metal,11.95,2.8,-6.3);for(let i=0;i<3;i++)box('Hanging laundry',.5,.75,.025,fabric,11.25+i*.65,2.4,-6.3);}
@@ -71,30 +72,29 @@ export function createCourtyard(source,variant=0){
  if(variant===2){box('Service dumpster',1.6,.95,1.1,metal,11.6,.65,-5.8);for(const dx of[-.83,.83])box('Dumpster rim',.06,.1,1.16,metal,11.6+dx,1.16,-5.8);for(const dz of[-.58,.58])box('Dumpster rim',1.7,.1,.06,metal,11.6,1.16,-5.8+dz);for(const dx of[-.4,0,.4])box('Dumpster reinforcement ribs',.045,.74,.04,metal,11.6+dx,.65,-5.23);for(const dx of[-.65,.65])for(const dz of[-.4,.4])box('Dumpster casters',.13,.2,.16,metal,11.6+dx,.1,-5.8+dz);box('Dumpster lid',1.72,.07,1.22,metal,11.6,1.27,-5.8);box('Dumpster handle',.35,.05,.1,trim,11.6,1.28,-5.13);for(let row=0;row<4;row++){for(let i=0;i<5;i++)box('Pallet top boards',.22,.04,.9,wood,17.5+i*.25,.16+row*.15,-5.4);for(const dz of[-.33,0,.33])box('Pallet stringers',1.25,.09,.09,wood,18,.1+row*.15,-5.4+dz);}}
  // Each theme changes the silhouette and layout, while all solids stay behind z=-3.5.
  if(variant===3){
-  for(let i=0;i<3;i++){const x=9+i*4;box('Garage block',3.7,2.7,2.4,i%2?brick:stone,x,1.35,-7.1);box('Garage roof',3.95,.16,2.65,metal,x,2.78,-7.1);box('Steel double garage doors',3.05,2.25,.08,metal,x,1.15,-5.85);for(const dx of[-1.62,1.62])box('Garage door jamb',.12,2.5,.14,trim,x+dx,1.25,-5.77);box('Garage door handle',.26,.04,.08,trim,x,.95,-5.72);for(const dx of[-.77,.77])for(const yy of[.3,2.0])box('Garage door reinforcement',1.4,.045,.035,metal,x+dx,yy,-5.79);}
-  for(let i=0;i<3;i++)crate(18.8,i*.4,-5.2,.6);
+  for(let i=0;i<3;i++){const x=[7,11,19][i];box('Garage block',3.7,2.7,2.4,i%2?brick:stone,x,1.35,-7.1);box('Garage roof',3.95,.16,2.65,metal,x,2.78,-7.1);box('Steel double garage doors',3.05,2.25,.08,metal,x,1.15,-5.85);for(const dx of[-1.62,1.62])box('Garage door jamb',.12,2.5,.14,trim,x+dx,1.25,-5.77);box('Garage door handle',.26,.04,.08,trim,x,.95,-5.72);for(const dx of[-.77,.77])for(const yy of[.3,2.0])box('Garage door reinforcement',1.4,.045,.035,metal,x+dx,yy,-5.79);}
+  for(let i=0;i<3;i++)crate(13.3,i*.4,-7.3,.6);
  }
  if(variant===4){
-  for(let i=0;i<3;i++){const x=9.3+i*3.7;for(const dx of[-1.3,1.3])box('Market stall posts',.07,2.4,.07,metal,x+dx,1.2,-6.5);for(let plank=0;plank<5;plank++)box('Market counter planks',2.85,.08,.205,wood,x,.9,-6.65+plank*.23);box('Market awning',3.1,.12,1.9,i%2?metal:trim,x,2.45,-6.4);for(let j=0;j<3;j++){crate(x-.85+j*.85,.99,-6.2,.7,.3,.7);}}
+  for(let i=0;i<3;i++){const x=[7.5,11.1,18.7][i];for(const dx of[-1.3,1.3])box('Market stall posts',.07,2.4,.07,metal,x+dx,1.2,-6.5);for(let plank=0;plank<5;plank++)box('Market counter planks',2.85,.08,.205,wood,x,.9,-6.65+plank*.23);box('Market awning',3.1,.12,1.9,i%2?metal:trim,x,2.45,-6.4);for(let j=0;j<3;j++){crate(x-.85+j*.85,.99,-6.2,.7,.3,.7);}}
  }
  if(variant===5){
-  for(const x of[9.7,16.8]){for(const dz of[-.95,.95])for(let row=0;row<3;row++)box('Grass bed side boards',3,.09,.08,wood,x,.06+row*.11,-6.4+dz);for(const dx of[-1.46,1.46])for(let row=0;row<3;row++)box('Grass bed end boards',.08,.09,1.8,wood,x+dx,.06+row*.11,-6.4);box('Grass bed soil',2.8,.08,1.8,earth,x,.24,-6.4);grassPatch(x,-6.4,2.65,1.65,.29);}
-
-  for(let i=0;i<7;i++)box('Garden stepping stones',.65,.04,.65,stone,13,.02,-4.2-i*.55);bench(13,-8.15);
+  for(const x of[8.8,19.0]){for(const dz of[-.62,.62])for(let row=0;row<2;row++)box('Grass bed side boards',2.2,.09,.08,wood,x,.06+row*.11,-6.55+dz);for(const dx of[-1.06,1.06])for(let row=0;row<2;row++)box('Grass bed end boards',.08,.09,1.2,wood,x+dx,.06+row*.11,-6.55);box('Grass bed soil',2,.08,1.15,earth,x,.15,-6.55);grassPatch(x,-6.55,1.8,1,.20);}
+  bench(11.5,-8.05);
  }
  if(variant===6){
-  box('Workshop shed',7,2.9,2.4,brick,13,1.45,-7.45);box('Workshop roof',7.4,.18,2.8,metal,13,2.98,-7.45);box('Workshop double doors',3.4,2.35,.1,wood,13,1.175,-6.18);
-  for(const x of[12.25,13.75])box('Workshop door handles',.06,.32,.06,metal,x,1.1,-6.1);
+  box('Workshop shed',7,2.9,2.4,brick,9,1.45,-7.45);box('Workshop roof',7.4,.18,2.8,metal,9,2.98,-7.45);box('Workshop double doors',3.4,2.35,.1,wood,9,1.175,-6.18);
+  for(const x of[8.25,9.75])box('Workshop door handles',.06,.32,.06,metal,x,1.1,-6.1);
   for(let plank=0;plank<4;plank++)box('Workbench top planks',2.6,.09,.19,wood,18,.95,-6.0+plank*.21);for(const x of[17,19])box('Workbench legs',.09,.9,.65,metal,x,.45,-5.7);
   for(let i=0;i<5;i++)box('Stored metal beams',2.7,.08,.1,metal,8,.15+i*.13,-5.9+i*.12);
  }
  if(variant===7){
-  for(const x of[9.5,12.8,16.1]){for(const dx of[-1.2,1.2])box('Exercise bar supports',.09,2.5,.09,metal,x+dx,1.25,-6.7);box('Exercise overhead bar',2.5,.08,.08,metal,x,2.5,-6.7);}
+  for(const x of[9.5,12.8,18.5]){for(const dx of[-1.2,1.2])box('Exercise bar supports',.09,2.5,.09,metal,x+dx,1.25,-6.7);box('Exercise overhead bar',2.5,.08,.08,metal,x,2.5,-6.7);}
   for(let i=0;i<8;i++)box('Wall ladder rungs',2.4,.045,.055,wood,12.8,.3+i*.29,-6.7);
-  for(const x of[10,16]){box('Training bench',1.8,.12,.55,wood,x,.5,-4.8);for(const dx of[-.65,.65])box('Training bench feet',.08,.5,.45,metal,x+dx,.25,-4.8);}
+  for(const x of[10,18]){box('Training bench',1.8,.12,.55,wood,x,.5,-4.8);for(const dx of[-.65,.65])box('Training bench feet',.08,.5,.45,metal,x+dx,.25,-4.8);}
  }
  for(let i=0;i<3;i++)box('Rear downpipe' ,.09,6.8,.1,metal,5.2+i*7.5,3.4,-9.06);
  const groups=new Map();let boxes=0;for(const {geometry,material,items}of batches.values()){if(!groups.has(material))groups.set(material,[]);for(const item of items){groups.get(material).push(geometry.clone().applyMatrix4(item.matrix));boxes++;}}
- for(const [material,parts]of groups){if(parts.some(p=>!!p.index)!==parts.every(p=>!!p.index))for(let i=0;i<parts.length;i++)if(parts[i].index){const old=parts[i];parts[i]=old.toNonIndexed();old.dispose();}const geometry=mergeGeometries(parts);for(const p of parts)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;mesh.name=material.name;root.add(mesh);}const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowCount=windows.stats.count;root.userData.windowStyles=windows.stats.styles.size;root.userData.staticBoxes=boxes+windows.stats.parts;
+ for(const [material,parts]of groups){if(parts.some(p=>!!p.index)!==parts.every(p=>!!p.index))for(let i=0;i<parts.length;i++)if(parts[i].index){const old=parts[i];parts[i]=old.toNonIndexed();old.dispose();}const geometry=mergeGeometries(parts);for(const p of parts)p.dispose();const mesh=new THREE.Mesh(geometry,material);mesh.castShadow=true;mesh.receiveShadow=true;mesh.name=material.name;root.add(mesh);}const windowGroup=windows.finish();root.add(...windowGroup.children.slice());root.userData.windowAnchors=windows.stats.anchors;root.userData.windowCount=windows.stats.count;root.userData.windowStyles=windows.stats.styles.size;root.userData.staticBoxes=boxes+windows.stats.parts;
  root.add(vegetation.finish());const paving=courtyardPaving(source);root.add(...paving.children.slice());return root;
 }
