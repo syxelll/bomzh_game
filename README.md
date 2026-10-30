@@ -223,3 +223,8 @@ small deflection walks, full deflection runs. Both gaits sample by distance usin
 their own measured stride. Weapon locomotion keeps the complete authored upper
 body relative to the moving pelvis, including shoulders, hands and clothing.
 The compact HUD keeps full keyboard help in the pause dialog.
+
+The burp cloud uses 48 pooled billboard puffs in one instanced draw call, with
+procedural density and soft irregular edges. Puffs emit from the skinned mouth,
+remain in world space and dissipate after the authored attack. Animation time
+freezes emission, drift and noise on pause; changing characters clears the pool.
