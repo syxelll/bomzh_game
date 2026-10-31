@@ -26,10 +26,10 @@ export function createCourtyard(source,variant=0){
  // A porch for the eventual entrance; no props occupy the combat lane.
  box('Rear porch door',1.3,2.35,.18,metal,15.15,1.175,-8.94);box('Porch canopy',2.1,.12,1.1,metal,15.15,2.65,-8.5);
  function door(x,z,w=1.3,h=2.35){
-  for(const dx of[-w/2-.055,w/2+.055])box('Door casing',.1,h+.12,.18,trim,x+dx,h/2,z+.06);
-  box('Door lintel',w+.22,.1,.2,trim,x,h+.06,z+.06);box('Door threshold',w+.25,.08,.35,stone,x,.04,z+.12);
-  for(const yy of[.55,1.65]){box('Recessed door panel',w-.2,.78,.025,metal,x,yy,z+.105);for(const dx of[-w/2+.09,w/2-.09])box('Door raised edging',.025,.8,.035,trim,x+dx,yy,z+.125);}
-  box('Door lock plate',.11,.28,.04,trim,x+w*.3,1.05,z+.14);box('Door handle',.15,.035,.09,metal,x+w*.27,1.1,z+.2);
+  for(const dx of[-w/2-.04,w/2+.04])box('Door casing',.065,h+.08,.12,metal,x+dx,h/2,z+.06);
+  box('Door lintel',w+.16,.065,.12,metal,x,h+.04,z+.06);box('Door threshold',w+.25,.08,.35,stone,x,.04,z+.12);
+  for(const yy of[.55,1.65]){box('Recessed door panel',w-.2,.78,.025,metal,x,yy,z+.105);for(const dx of[-w/2+.09,w/2-.09])box('Door raised edging',.025,.8,.035,metal,x+dx,yy,z+.125);}
+  box('Door lock plate',.11,.28,.04,metal,x+w*.3,1.05,z+.14);box('Door handle',.15,.035,.09,metal,x+w*.27,1.1,z+.2);
   for(const yy of[.35,1.95])box('Door hinge',.055,.16,.08,metal,x-w/2+.04,yy,z+.16);
  }
  door(15.15,-8.94);door(23.2,-3.28,1.42,2.4);
