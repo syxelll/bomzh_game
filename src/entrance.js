@@ -19,12 +19,16 @@ export function createEntrance(){
   // Wall opening exposes a staircase, while the fighting lane remains flat.
   for(const [x,w]of [[3.95,7.9],[12.35,1.3]]){box('Plaster upper wall',w,3.1,.24,plaster,offset+x,2.85,-3.6);box('Green lower wall',w,1.3,.25,paint,offset+x,.65,-3.59);box('Skirting',w,.14,.29,metal,offset+x,.07,-3.55);box('Paint border',w,.045,.28,metal,offset+x,1.3,-3.55);}
   // Close the sides and ceiling of the recess: the oblique camera must not see sky through it.
-  for(const sideX of [7.88,11.72]){box('Stairwell side plaster',.2,3.2,3.15,plaster,offset+sideX,2.9,-5.05);box('Stairwell side green paint',.22,1.3,3.15,paint,offset+sideX,.65,-5.05);}
-  box('Stairwell ceiling',4,.16,3.25,plaster,offset+9.8,4.5,-5.05,null,true);
-  box('Stairwell back wall',3.8,4.5,.2,plaster,offset+9.8,2.25,-6.5);box('Stairwell landing',3.8,.16,1,concrete,offset+9.8,1.68,-6.05);
-  for(let step=0;step<12;step++){const height=(step+1)*.14,z=-3.7-step*.2;box('Stair tread',2.15,height,.22,concrete,offset+9.8,height/2,z);for(const side of [-1,1]){const x=offset+9.8+side*1.12;box('Stair baluster',.035,.85,.035,metal,x,height+.425,z);}}
-  for(const side of [-1,1]){const a=new THREE.Vector3(offset+9.8+side*1.12,.96,-3.7),b=new THREE.Vector3(a.x,2.5,-5.9),length=a.distanceTo(b),mesh=add(cylinder,metal,a.clone().add(b).multiplyScalar(.5).toArray(),[1,length,1]);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.sub(a).normalize());mesh.updateMatrix();}
-  box('Landing rail',3.5,.06,.06,metal,offset+9.8,2.5,-6.05);for(let n=0;n<9;n++)box('Landing rail post',.035,.75,.035,metal,offset+8.2+n*.4,2.13,-6.05);
+  for(const sideX of [7.88,11.72]){box('Stairwell side plaster',.2,4.5,3.15,plaster,offset+sideX,3.55,-5.05);box('Stairwell side green paint',.22,1.3,3.15,paint,offset+sideX,.65,-5.05);}
+  box('Stairwell ceiling',4,.16,3.25,plaster,offset+9.8,5.8,-5.05,null,true);
+  box('Stairwell back wall',3.8,5.8,.2,plaster,offset+9.8,2.9,-6.5);box('Turning stair landing',3.6,.16,.8,concrete,offset+9.8,1.60,-6.25);
+  for(const upper of[false,true]){const cx=offset+(upper?10.65:8.95),base=upper?1.68:0;for(let step=0;step<12;step++){const rise=(step+1)*.14,z=upper?-5.9+step*.2:-3.7-step*.2;box(upper?'Return stair tread':'Lower stair tread',1.45,rise,.22,concrete,cx,base+rise/2,z);for(const side of[-1,1])box('Stair baluster',.03,.85,.03,metal,cx+side*.755,base+rise+.425,z);}
+   for(const side of[-1,1]){const a=new THREE.Vector3(cx+side*.755,base+.99,upper?-5.9:-3.7),b=new THREE.Vector3(a.x,base+2.53,upper?-3.7:-5.9),length=a.distanceTo(b),mesh=add(cylinder,metal,a.clone().add(b).multiplyScalar(.5).toArray(),[1,length,1]);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.sub(a).normalize());mesh.updateMatrix();}
+  }
+  box('Upper floor landing',1.65,.14,.52,concrete,offset+10.65,3.29,-3.92);
+  box('Upper floor door',.08,2.0,.87,wood,offset+11.58,4.36,-4.0);for(const z of[-4.48,-3.52])box('Upper door trim',.12,2.12,.07,metal,offset+11.53,4.36,z);box('Upper door lintel',.12,.08,1.03,metal,offset+11.53,5.42,-4.0);box('Upper door handle',.06,.04,.13,metal,offset+11.48,4.3,-3.73);
+  windows.add(offset+9.8,3.05,-6.38,1.15,1.45,0,bay+4);
+  root.userData.stairFlights=(root.userData.stairFlights??0)+2;
   box('Door recess',1.42,2.48,.16,dark,offset+2.15,1.24,-3.4);box('Apartment door',1.16,2.3,.12,wood,offset+2.15,1.15,-3.29);for(const dx of [-.63,.63])box('Door trim',.09,2.4,.2,metal,offset+2.15+dx,1.2,-3.23);box('Door lintel',1.36,.1,.2,metal,offset+2.15,2.43,-3.23);box('Door handle',.13,.035,.07,metal,offset+2.55,1.03,-3.18);box('Peephole',.035,.035,.03,metal,offset+2.15,1.68,-3.19);
   for(let row=0;row<2;row++)for(let col=0;col<4;col++){const x=offset+4.3+col*.39,y=1.15+row*.42;box('Mailbox frame',.38,.4,.21,dark,x,y,-3.35);box('Mailbox door',.34,.35,.025,col%3?metal:paint,x,y,-3.23);box('Mailbox letter slot',.23,.025,.015,dark,x,y+.1,-3.207);box('Mailbox label',.1,.04,.018,paper,x,y-.07,-3.2);}
   box('Noticeboard frame',1.3,1.45,.12,wood,offset+6.9,1.8,-3.35);box('Noticeboard backing',1.17,1.3,.03,dark,offset+6.9,1.8,-3.27);for(let n=0;n<6;n++){const x=offset+6.6+(n%2)*.48,y=2.13-Math.floor(n/2)*.37;box('Paper notices',.36,.3,.015,paper,x,y,-3.24,[0,0,(n%3-1)*.06]);for(let line=0;line<3;line++)box('Notice ink',.24,.012,.018,metal,x,y+.06-line*.045,-3.23);}

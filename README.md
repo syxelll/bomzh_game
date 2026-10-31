@@ -289,3 +289,12 @@ joints from gaps between complete window rows/columns and projects them only on
 exposed concrete. Concrete uses blended world-space texture samples to hide
 repeats; brick retains its running bond. The plinth uses matte mottled concrete
 instead of the striped imported foundation texture.
+
+Filled trash bags have squat asymmetric bodies, broad flattened contact areas,
+short tied necks, varied yaw and pavement-height placement. The entrance now
+shares the painted material style, including `entrance-floor-painted.jpg`.
+Two flights per stairwell turn at an intermediate landing and lead to an upper
+floor door, with a rear landing window. The exit door has one continuous material
+projection across its panels and no glowing sign. Barrel smoke uses 12 pooled
+billboard puffs per barrel: it rises, drifts, expands and fades with the same
+simulation clock as the fire, freezes on pause and hides inside entrances.

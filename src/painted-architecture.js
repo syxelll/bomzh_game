@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {propMaterials} from './prop-materials.js';
-const urls={brick:'/models/brick-painted.jpg?v=paint1',facade:'/models/facade-painted.jpg?v=paint1',metal:'/models/metal-painted.jpg?v=paint1'},maps={};let ready;
+const urls={brick:'/models/brick-painted.jpg?v=paint1',facade:'/models/facade-painted.jpg?v=paint1',metal:'/models/metal-painted.jpg?v=paint1',floor:'/models/entrance-floor-painted.jpg?v=paint1'},maps={};let ready;
 export function preloadArchitecture(){if(typeof document==='undefined')return Promise.resolve();if(ready)return ready;ready=Promise.all(Object.entries(urls).map(([key,url])=>new Promise((resolve,reject)=>{const map=new THREE.TextureLoader().load(url,resolve,undefined,reject);map.colorSpace=THREE.SRGBColorSpace;map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=4;maps[key]=map;}))).then(()=>{const m=propMaterials().metal;m.map=maps.metal;m.normalMap=null;m.roughnessMap=null;m.bumpMap=maps.metal;m.bumpScale=.006;m.color.set('#ffffff');m.roughness=.9;m.needsUpdate=true;});return ready;}
 export function applyPaintedArchitecture(root){root.updateMatrixWorld(true);const seen=new Set();root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const m=mesh.material,brick=/brick/i.test(m.name),concrete=/Russian weathered concrete panels|Courtyard limestone|^Concrete wall$/i.test(m.name);if(!brick&&!concrete)return;if(!seen.has(m)){seen.add(m);m.map=maps[brick?'brick':'facade']??null;m.normalMap=null;m.roughnessMap=null;m.bumpMap=null;m.roughness=1;m.color.set('#ffffff');m.needsUpdate=true;
  m.onBeforeCompile=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 architectureWorld;').replace('#include <project_vertex>','#include <project_vertex>\narchitectureWorld=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 architectureWorld;').replace('#include <map_fragment>',`#include <map_fragment>
@@ -12,3 +12,23 @@ export function applyPaintedArchitecture(root){root.updateMatrixWorld(true);cons
  vec2 uv=architectureUV*.25,cell=floor(architectureUV*.18),f=smoothstep(0.,1.,fract(architectureUV*.18)),dx=dFdx(uv),dy=dFdy(uv);diffuseColor*=mix(mix(facadePatch(uv,cell,dx,dy),facadePatch(uv,cell+vec2(1.,0.),dx,dy),f.x),mix(facadePatch(uv,cell+vec2(0.,1.),dx,dy),facadePatch(uv,cell+1.,dx,dy),f.x),f.y);
  #endif`);}};m.customProgramCacheKey=()=> brick?'painted-brick-v2':'painted-concrete-stochastic-v2';}
  mesh.geometry=mesh.geometry.clone();const p=mesh.geometry.attributes.position,n=mesh.geometry.attributes.normal,uv=mesh.geometry.attributes.uv,v=new THREE.Vector3();if(!uv)return;for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i).applyMatrix4(mesh.matrixWorld);const axis=Math.abs(n.getZ(i))>.5?v.x:v.z;uv.setXY(i,axis/(brick?1:4),v.y/(brick?.65:3));}uv.needsUpdate=true;});}
+
+export function applyPaintedEntrance(root){const seen=new Set();root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const m=mesh.material;if(seen.has(m))return;seen.add(m);const floor=m.name==='Entrance terrazzo',palette={
+ 'Entrance aged plaster':['facade','#d0c9b6'],
+ 'Entrance chipped green paint':['facade','#8e9d88'],
+ 'Entrance concrete stairs':['facade','#b1b2a8'],
+ 'Entrance doors':['metal','#b6a283'],
+ 'Entrance painted steel':['metal','#9aa18f'],
+ 'Entrance rusty cast iron radiator':['metal','#a09070'],
+ 'Entrance terrazzo':['floor','#a3a391']
+ };const setting=palette[m.name];if(!setting)return;m.map=maps[setting[0]]??null;m.color.set(setting[1]);m.normalMap=null;m.roughnessMap=null;m.bumpMap=null;m.roughness=1;m.metalness=.0;m.needsUpdate=true;
+ m.onBeforeCompile=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 entranceUV;').replace('#include <project_vertex>',`#include <project_vertex>
+ vec4 interiorPoint=vec4(transformed,1.);
+ #ifdef USE_INSTANCING
+  interiorPoint=instanceMatrix*interiorPoint;
+ #endif
+ vec3 worldInterior=(modelMatrix*interiorPoint).xyz;
+ entranceUV=${floor?'worldInterior.xz/1.6':'vec2(abs(normal.z)>.5?worldInterior.x:worldInterior.z,worldInterior.y)/vec2(3.,2.5)'};`);shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 entranceUV;').replace('#include <map_fragment>',`
+ #ifdef USE_MAP
+  diffuseColor*=texture2D(map,entranceUV);
+ #endif`);};m.customProgramCacheKey=()=>floor?'painted-entrance-floor-v1':'painted-entrance-wall-v1';});}
