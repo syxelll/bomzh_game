@@ -298,3 +298,7 @@ floor door, with a rear landing window. The exit door has one continuous materia
 projection across its panels and no glowing sign. Barrel smoke uses 12 pooled
 billboard puffs per barrel: it rises, drifts, expands and fades with the same
 simulation clock as the fire, freezes on pause and hides inside entrances.
+
+Fire barrels reuse the painted metal texture with dents, soot concentrated at
+the rim and ground grime. Dumpster ribs, handles, hinges and hubs use dark worn
+metal; the pale front label is removed.
