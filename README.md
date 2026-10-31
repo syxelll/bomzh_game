@@ -302,3 +302,13 @@ simulation clock as the fire, freezes on pause and hides inside entrances.
 Fire barrels reuse the painted metal texture with dents, soot concentrated at
 the rim and ground grime. Dumpster ribs, handles, hinges and hubs use dark worn
 metal; the pale front label is removed.
+
+`src/foreground-props.js` adds a bounded foreground layer along the near sidewalk:
+slatted crates, worn tyres, short bollards and open metal litter baskets. Static
+material batches share four templates; only five 8 m sections are retained. Props
+stay outside character paths, below torso height, hide in interiors and are less
+dense on low quality. Their world-space positions create parallax as the camera
+moves. The game defaults to the subtle `street` color preset: moderate contrast,
+reduced saturation, cooler shadows, warm highlights and a light vignette. Saved
+personal grading takes precedence; neutral comparison remains available in the
+hidden color editor, and DOF stays disabled by default.
