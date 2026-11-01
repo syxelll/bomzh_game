@@ -1,3 +1,4 @@
+import {applyCombatActionPose} from './grapple.js';
 import {applyDisgustPose} from './disgust.js';
 import {applyWeaponPose,applyBottleSmashPose} from './weapon-animation.js';
 import * as THREE from 'three';
@@ -71,7 +72,7 @@ export function prepareAnimator(actor){
 }
 export function pose(actor,time,walk,kind,progress){
  const weapon=actor.weaponType&&!actor.userActions?.clips.weapon_idle&&(!kind||kind==='jab')&&!(actor.dodge>0)&&!(actor.hurt>0);
- const authored=applyUserAction(actor,time,walk,kind==='bottle_smash'?null:weapon&&kind==='jab'?null:kind,progress);if(authored){if(kind==='bottle_smash'){applyBottleSmashPose(actor,progress);applyReferenceHands(actor,'weapon_idle');}if(weapon){applyWeaponPose(actor,progress,kind==='jab');applyReferenceHands(actor);}applyDisgustPose(actor);blendUserTransition(actor,time,kind==='bottle_smash'?'bottle-smash':weapon?(kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-'+authored):authored);groundPose(actor,0,{kind:authored==='dodge'?'dodge':kind,time});updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const authored=applyUserAction(actor,time,walk,kind==='bottle_smash'?null:weapon&&kind==='jab'?null:kind,progress);if(authored){if(kind==='bottle_smash'){applyBottleSmashPose(actor,progress);applyReferenceHands(actor,'weapon_idle');}if(weapon){applyWeaponPose(actor,progress,kind==='jab');applyReferenceHands(actor);}applyDisgustPose(actor);blendUserTransition(actor,time,kind==='bottle_smash'?'bottle-smash':weapon?(kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-'+authored):authored);groundPose(actor,0,{kind:authored==='dodge'?'dodge':kind,time});applyCombatActionPose(actor);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const motionTime=walk&&Number.isFinite(actor.walkDistance)?actor.walkDistance/(actor.walkStride??(actor.height??1.85)*.65)*(2*Math.PI/9):time;
  const p=sampleMotion(motionTime,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
@@ -101,6 +102,6 @@ export function pose(actor,time,walk,kind,progress){
  if(weapon){applyWeaponPose(actor,progress,kind==='jab');const id=kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-carry';if(actor.motionId!==id){actor.motionId=id;actor.transitionStart=time;}}
  if(kind==='bottle_smash')applyBottleSmashPose(actor,progress);
  applyReferenceHands(actor);
- applyDisgustPose(actor);blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor,0,{kind,time});updateRigidAttachments(actor);
+ applyDisgustPose(actor);blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor,0,{kind,time});applyCombatActionPose(actor);updateRigidAttachments(actor);
  return p;
 }

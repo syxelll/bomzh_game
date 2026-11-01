@@ -1,0 +1,12 @@
+import * as THREE from 'three';
+import {weaponTypes} from './weapons.js';
+import {bodyRadius} from './character-collisions.js';
+// Swept segment collision prevents fast throws passing through a body between frames.
+export function projectileContact(from,to,enemies){let hit=null,first=Infinity;const dx=to.x-from.x,dz=to.z-from.z,length=dx*dx+dz*dz;for(const e of enemies){if(e.health<=0||e.down>0||e.grabbed)continue;const ox=from.x-e.x,oz=from.z-e.z,r=bodyRadius(e)+.15,a=length,b=ox*dx+oz*dz,c=ox*ox+oz*oz-r*r,disc=b*b-a*c;let t=c<=0?0:a>0&&disc>=0?(-b-Math.sqrt(disc))/a:Infinity;if(t<0||t>1||t>=first)continue;const y=THREE.MathUtils.lerp(from.y,to.y,t);if(y<.15||y>(e.height??1.95)+.1)continue;first=t;hit=e;}return hit;}
+export function aimThrow(player,origin,enemies){const forward=new THREE.Vector3(Math.sin(player.heading),0,Math.cos(player.heading));const target=enemies.filter(e=>{const dx=e.x-player.x,dz=e.z-player.z,d=Math.hypot(dx,dz);return e.health>0&&!e.grabbed&&!(e.down>0)&&d<9&&d>.5&&(dx*forward.x+dz*forward.z)/d>.94;}).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z))[0];return target?new THREE.Vector3(target.x-origin.x,0,target.z-origin.z).normalize():forward;}
+export class Projectiles{
+ constructor(scene){this.scene=scene;this.items=[];this.audit=[];}
+ launch(mesh,type,origin,direction){const spec=weaponTypes[type];if(!spec||!mesh)return false;mesh.visible=true;mesh.position.copy(origin);this.scene.add(mesh);this.items.push({mesh,type,age:0,velocity:new THREE.Vector3(direction.x*10.5,2,direction.z*10.5),damage:spec.throwDamage??Math.round(spec.damage*1.25),active:true});return true;}
+ update(dt,enemies,onHit){if(dt<=0)return;for(let i=this.items.length-1;i>=0;i--){const p=this.items[i];p.age+=dt;if(p.active){const before=p.mesh.position.clone();p.velocity.y-=9.8*dt;p.mesh.position.addScaledVector(p.velocity,dt);p.mesh.rotateZ(dt*13);const enemy=projectileContact(before,p.mesh.position,enemies);if(enemy){p.active=false;p.mesh.visible=false;onHit(enemy,p);this.audit.push({type:p.type,damage:p.damage});if(this.audit.length>8)this.audit.shift();}else if(p.mesh.position.y<=.08){p.mesh.position.y=.08;p.active=false;p.mesh.rotation.z=Math.PI/2;}}if(p.age>3.5){this.scene.remove(p.mesh);this.items.splice(i,1);}}}
+ debug(){return {items:this.items.map(p=>({type:p.type,active:p.active,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z})),hits:[...this.audit]};}
+}
