@@ -33,7 +33,7 @@ export class Weapons{
  this.held.position.copy(this.palmOffset).applyMatrix4(world);
  // Carry upright; during the strike the whole handle follows a deliberate arc.
  // Blend its orientation through the same pose transition as the wrist.
- if(actor.userActions?.weaponGrip&&(actor.weaponType||actor.combatPose?.kind==='throw')){const axis=new THREE.Vector3(...actor.userActions.weaponGrip.axis).normalize();this.held.quaternion.copy(this.quaternion).multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),axis));return;}
+ if(actor.userActions?.weaponGrip&&(actor.weaponType||actor.combatPose?.kind==='throw_object')){const axis=new THREE.Vector3(...actor.userActions.weaponGrip.axis).normalize();this.held.quaternion.copy(this.quaternion).multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),axis));return;}
  const direction=actor.weaponDirection??new THREE.Vector3(-.12,.96,.27);
  const desired=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),direction.clone().transformDirection(actor.root.matrixWorld));
  if(this.orientationSerial!==actor.motionId){this.fromOrientation=this.held.quaternion.clone();this.orientationSerial=actor.motionId;}

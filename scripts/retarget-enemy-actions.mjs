@@ -1,13 +1,8 @@
 import fs from 'node:fs';
 import * as T from 'three';
 import {virtualParent} from '../src/pose-transitions.js';
-function rig(path){const bytes=fs.readFileSync(path),json=JSON.parse(bytes.toString('utf8',20,20+bytes.readUInt32LE(12))),parents=new Map(),worlds=new Map();json.nodes.forEach((n,i)=>n.children?.forEach(child=>parents.set(child,i)));
- function world(i){if(worlds.has(i))return worlds.get(i);const n=json.nodes[i],m=n.matrix?new T.Matrix4().fromArray(n.matrix):new T.Matrix4().compose(new T.Vector3().fromArray(n.translation??[0,0,0]),new T.Quaternion().fromArray(n.rotation??[0,0,0,1]),new T.Vector3().fromArray(n.scale??[1,1,1]));if(parents.has(i))m.premultiply(world(parents.get(i)));worlds.set(i,m);return m;}
- const matrices=new Map(json.nodes.map((n,i)=>[n.name,world(i)])),parentNames=new Map(json.nodes.map((n,i)=>[n.name,parents.has(i)?json.nodes[parents.get(i)].name:null])),weighted=new Set(['root.x']);const base=28+bytes.readUInt32LE(12);
- function values(ai,index){const a=json.accessors[ai],v=json.bufferViews[a.bufferView],n={VEC4:4,VEC3:3,SCALAR:1}[a.type],size={5121:1,5123:2,5125:4,5126:4}[a.componentType],offset=base+(v.byteOffset??0)+(a.byteOffset??0)+index*(v.byteStride??n*size);return Array.from({length:n},(_,k)=>a.componentType===5121?bytes.readUInt8(offset+k*size):a.componentType===5123?bytes.readUInt16LE(offset+k*size):a.componentType===5125?bytes.readUInt32LE(offset+k*size):bytes.readFloatLE(offset+k*size));}
- for(const n of json.nodes){if(n.skin!==undefined&&n.mesh!==undefined)for(const p of json.meshes[n.mesh].primitives){const a=p.attributes;if(a.JOINTS_0===undefined)continue;for(let i=0;i<json.accessors[a.JOINTS_0].count;i++){const j=values(a.JOINTS_0,i),w=values(a.WEIGHTS_0,i);for(let k=0;k<4;k++)if(w[k]>0)weighted.add(json.nodes[json.skins[n.skin].joints[j[k]]].name);}}if(n.mesh!==undefined&&n.skin===undefined&&parentNames.get(n.name))weighted.add(parentNames.get(n.name));}
- return {matrices,parentNames,weighted};
-}
+import {rig} from './lib/gltf-rig.mjs';
+
 const hero=rig('public/models/hobo.glb'),enemy=rig('public/models/enemy.glb'),data=JSON.parse(fs.readFileSync('public/models/hobo-actions.json'));
 const selected=new Set([...data.bones,...enemy.weighted].filter(n=>hero.matrices.has(n)&&enemy.matrices.has(n))),nodes=new Map();
 for(const name of selected){let parent=virtualParent(name);if(parent===undefined||parent&&!selected.has(parent)){parent=enemy.parentNames.get(name);while(parent&&!selected.has(parent))parent=enemy.parentNames.get(parent);}const h=hero.matrices.get(name),e=enemy.matrices.get(name),hp=new T.Vector3(),hq=new T.Quaternion(),hs=new T.Vector3(),ep=new T.Vector3(),eq=new T.Quaternion(),es=new T.Vector3();h.decompose(hp,hq,hs);e.decompose(ep,eq,es);nodes.set(name,{name,parent:parent??null,h,e,hp,hq,ep,eq,es});}

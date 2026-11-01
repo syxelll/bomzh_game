@@ -20,7 +20,7 @@ export function virtualParent(name){
  if(stem==='toes_01')return 'foot'+side;
  return {'root.x':null,'spine_01.x':'root.x','spine_02.x':'spine_01.x','spine_03.x':'spine_02.x','neck.x':'spine_03.x','c_head.x':'neck.x','head.x':'c_head.x','jawbone.x':'head.x'}[name];
 }
-function configure(actor){
+export function preparePoseHierarchy(actor){
  const byName=new Map(actor.bind.map(b=>[b.name,b])),selected=new Set(actor.userActions.bones);
  const nodes=new Map();for(const b of actor.bind)if(selected.has(b.name))nodes.set(b.name,{...b,inverse:b.matrix.clone().invert()});
  for(const node of nodes.values()){
@@ -49,9 +49,9 @@ export function normalizeHands(actor,poses){
 // Blend local joint deformations, then rebuild parents before children. ARP's
 // stretch bones use constraints rather than an anatomical scene-parent chain.
 function rigidFrame(node,pose){
- const p=new THREE.Vector3().setFromMatrixPosition(pose),q=new THREE.Quaternion(),scale=new THREE.Vector3();
- pose.clone().multiply(node.inverse).decompose(new THREE.Vector3(),q,scale);
- return new THREE.Matrix4().compose(p,q.normalize().multiply(node.bindRotation),new THREE.Vector3(1,1,1));
+ const p=new THREE.Vector3(),q=new THREE.Quaternion(),scale=new THREE.Vector3();
+ pose.decompose(p,q,scale);
+ return new THREE.Matrix4().compose(p,q.normalize(),new THREE.Vector3(1,1,1));
 }
 export function blendPoseMaps(actor,from,to,alpha){
  const result=new Map(to);
@@ -59,24 +59,47 @@ export function blendPoseMaps(actor,from,to,alpha){
   const a=from.get(n.bone),b=to.get(n.bone);if(!a||!b)continue;
   const ap=n.parent?rigidFrame(n.parent,from.get(n.parent.bone)):null,bp=n.parent?rigidFrame(n.parent,to.get(n.parent.bone)):null;
   const la=ap?ap.clone().invert().multiply(a):a.clone(),lb=bp?bp.clone().invert().multiply(b):b.clone();
+  // Interpolate the actual local joint frames. Blending deformation deltas
+  // around a distant bind origin rotates that offset twice and stretches limbs.
+  const local=blendTransform(new THREE.Matrix4(),la,lb,alpha);
+  if(/^(?:forearm_stretch|hand|leg_stretch|foot)\.[lr]$/.test(n.name)){
+   const p=new THREE.Vector3().setFromMatrixPosition(local),length=new THREE.Vector3().setFromMatrixPosition(la).length()*(1-alpha)+new THREE.Vector3().setFromMatrixPosition(lb).length()*alpha;
+   if(p.lengthSq()>1e-12)local.setPosition(p.setLength(length));
+  }
+  const parent=n.parent?rigidFrame(n.parent,result.get(n.parent.bone)):null;
+  result.set(n.bone,parent?parent.clone().multiply(local):local);
+ }
+ return result;
+}
+function legacyRigidFrame(node,pose){
+ const p=new THREE.Vector3().setFromMatrixPosition(pose),q=new THREE.Quaternion(),scale=new THREE.Vector3();
+ pose.clone().multiply(node.inverse).decompose(new THREE.Vector3(),q,scale);
+ return new THREE.Matrix4().compose(p,q.normalize().multiply(node.bindRotation),new THREE.Vector3(1,1,1));
+}
+function blendLegacyPoseMaps(actor,from,to,alpha){
+ const result=new Map(to);
+ for(const n of actor.poseHierarchy){
+  const a=from.get(n.bone),b=to.get(n.bone);if(!a||!b)continue;
+  const ap=n.parent?legacyRigidFrame(n.parent,from.get(n.parent.bone)):null,bp=n.parent?legacyRigidFrame(n.parent,to.get(n.parent.bone)):null;
+  const la=ap?ap.clone().invert().multiply(a):a.clone(),lb=bp?bp.clone().invert().multiply(b):b.clone();
   la.multiply(n.localInverse);lb.multiply(n.localInverse);
   const local=blendTransform(new THREE.Matrix4(),la,lb,alpha).multiply(n.localBind);
-  const parent=n.parent?rigidFrame(n.parent,result.get(n.parent.bone)):null;
+  const parent=n.parent?legacyRigidFrame(n.parent,result.get(n.parent.bone)):null;
   result.set(n.bone,parent?parent.clone().multiply(local):local);
  }
  return result;
 }
 export function blendUserTransition(actor,time,id){
  if(!actor.userActions)return;
- if(!actor.poseHierarchy)configure(actor);
+ if(!actor.poseHierarchy)preparePoseHierarchy(actor);
  const inverse=actor.visual.matrixWorld.clone().invert(),target=new Map();
  for(const [bone,world] of actor.posedWorld)target.set(bone,inverse.clone().multiply(world));
  normalizeHands(actor,target);
- if(actor.motionId!==id){actor.transitionFrom=actor.lastMotion;actor.transitionStart=time;actor.motionId=id;}
+ if(actor.motionId!==id){actor.transitionFrom=actor.lastMotion;actor.transitionStart=time;actor.motionId=id;actor.transitionCoherent=!!actor.coherentSampling||!!actor.lastCoherentSampling;}
  const duration=id==='jab:return'?.14:id==='dodge'?.06:id.includes('_combo:')?.06:.12,t=Math.min(1,Math.max(0,(time-actor.transitionStart)/duration)),alpha=t*t*(3-2*t);
- const final=actor.transitionFrom&&alpha<1?blendPoseMaps(actor,actor.transitionFrom,target,alpha):target;
+ const final=actor.transitionFrom&&alpha<1?(actor.transitionCoherent?blendPoseMaps:blendLegacyPoseMaps)(actor,actor.transitionFrom,target,alpha):target;
  for(const [bone,model] of final)actor.posedWorld.get(bone).copy(actor.visual.matrixWorld).multiply(model);
- actor.lastMotion=final;if(alpha===1)actor.transitionFrom=null;
+ actor.lastMotion=final;actor.lastCoherentSampling=actor.coherentSampling;if(alpha===1)actor.transitionFrom=null;
 }
 export function updateRigidAttachments(actor){
  for(const attachment of actor.rigid){
