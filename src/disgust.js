@@ -1,0 +1,10 @@
+import * as THREE from 'three';
+import {aimArm} from './weapon-animation.js';
+export const disgustDuration={burp:1.6,spray:1.8};
+export function isDisgusted(enemy){return (enemy.disgust?.remaining??0)>0&&enemy.health>0;}
+export function inflictDisgust(enemy,kind){const duration=disgustDuration[kind];if(!duration)return false;enemy.disgust={kind,duration,remaining:enemy.health>0?duration:0};enemy.windup=0;enemy.strike=0;enemy.knockback=0;enemy.stun=Math.max(enemy.stun??0,enemy.disgust.remaining);enemy.cooldown=Math.max(enemy.cooldown??0,duration+.25);enemy.flash=0;enemy.hurt=0;if(enemy.warning)enemy.warning.visible=false;return true;}
+export function tickDisgust(enemy,dt){const status=enemy.disgust;if(!status)return;status.remaining=enemy.health<=0?0:Math.max(0,status.remaining-Math.max(0,dt));enemy.stun=Math.max(enemy.stun??0,status.remaining);}
+export function applyDisgustPose(actor){const status=actor.disgust;if(!isDisgusted(actor)||!actor.bind||!actor.posedWorld)return;const elapsed=status.duration-status.remaining,weight=THREE.MathUtils.smoothstep(elapsed,0,.15)*(1-THREE.MathUtils.smoothstep(.18-status.remaining,0,.18));
+ const head=actor.bind.find(b=>b.name==='head.x'),headPose=head&&actor.posedWorld.get(head.bone);if(!headPose)return;const forward=new THREE.Vector3(0,0,1).applyQuaternion(actor.root.quaternion),side=new THREE.Vector3(1,0,0).applyQuaternion(actor.root.quaternion),face=new THREE.Vector3().setFromMatrixPosition(headPose).addScaledVector(forward,.13);face.y-=.08;
+ for(const suffix of['.r','.l']){const hand=actor.bind.find(b=>b.name==='hand'+suffix),m=hand&&actor.posedWorld.get(hand.bone);if(!m)continue;const current=new THREE.Vector3().setFromMatrixPosition(m),target=suffix==='.r'?face.clone().addScaledVector(side,-.06):actor.root.localToWorld(new THREE.Vector3(.23,(actor.height??1.95)*.65,.25));current.lerp(target,weight);const pole=actor.root.localToWorld(new THREE.Vector3(suffix==='.r'?-.65:.65,(actor.height??1.95)*.62,.10));aimArm(actor,suffix,current,pole);}
+}

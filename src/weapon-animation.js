@@ -15,7 +15,7 @@ export function weaponMotion(progress=0,striking=false){
 }
 function around(point,q){return new THREE.Matrix4().makeTranslation(...point.toArray()).multiply(new THREE.Matrix4().makeRotationFromQuaternion(q)).multiply(new THREE.Matrix4().makeTranslation(...point.clone().negate().toArray()));}
 // Rotate the two actual segments, never translate or scale individual joints.
-function aimArm(actor,side,target,pole){
+export function aimArm(actor,side,target,pole){
  const find=name=>actor.bind.find(b=>b.name===name+side),shoulder=find('arm_stretch'),elbow=find('forearm_stretch'),hand=find('hand');if(!shoulder||!elbow||!hand)return;
  const point=b=>new THREE.Vector3().setFromMatrixPosition(actor.posedWorld.get(b.bone));
  const s=point(shoulder),e=point(elbow),w=point(hand),a=s.distanceTo(e),b=e.distanceTo(w),axis=target.clone().sub(s),distance=THREE.MathUtils.clamp(axis.length(),Math.abs(a-b)+.001,a+b-.002);axis.normalize();
