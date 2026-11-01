@@ -14,9 +14,9 @@ export class DrinkingBottle{
  if(this.serial!==actor.pickup){this.serial=actor.pickup;this.reference.copy(this.rotation).invert();}
  if(this.anchorActor!==actor.visual){this.anchorActor=actor.visual;this.mouth=surfaceAnchor(actor,/teeth/i,[.5,.55,1]);}
  const carry=new THREE.Vector3(0,1,0).applyQuaternion(this.rotation.clone().multiply(this.reference));
- const amount=smashing?smooth(.49,.64,p):smooth(.35,.49,p)*(1-smooth(.8,.94,p));let grip=smashing?.38:.25;
+ const amount=smashing?smooth(.49,.64,p):smooth(.35,.49,p)*(1-smooth(.8,.94,p));let grip=smashing?THREE.MathUtils.lerp(.20,.38,smooth(.26,.48,p)):.25;
  if(this.mouth&&amount>0){const mouth=this.mouth.get(new THREE.Vector3());if(smashing)mouth.y+=.14;const toward=smashing?this.root.position.clone().sub(mouth):mouth.sub(this.root.position),distance=toward.length();
-  if(distance>.015){const q=new THREE.Quaternion().setFromUnitVectors(carry,toward.normalize());carry.applyQuaternion(new THREE.Quaternion().slerp(q,amount));if(smashing)grip=THREE.MathUtils.lerp(.38,THREE.MathUtils.clamp(distance/.65,.2,.39),amount);else grip=THREE.MathUtils.lerp(.25,THREE.MathUtils.clamp(.46-distance/.65,.17,.32),amount);}
+  if(distance>.015){const q=new THREE.Quaternion().setFromUnitVectors(carry,toward.normalize());carry.applyQuaternion(new THREE.Quaternion().slerp(q,amount));if(smashing)grip=THREE.MathUtils.lerp(grip,THREE.MathUtils.clamp(distance/.65,.2,.39),amount);else grip=THREE.MathUtils.lerp(.25,THREE.MathUtils.clamp(.46-distance/.65,.17,.32),amount);}
  }
  this.body.position.y=-grip;this.label.position.y=.18-grip;
  this.root.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),carry.normalize());

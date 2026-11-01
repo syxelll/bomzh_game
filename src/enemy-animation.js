@@ -21,3 +21,6 @@ export function enemyAttackPose(enemy){
  if(enemy.strike>0){const phase=Math.max(0,Math.min(1,1-enemy.strike/.3));return {kind:'jab',progress:phase<=.25?hit*(.85+.15*phase/.25):hit+(1-hit)*(phase-.25)/.75};}
  return {kind:null,progress:0};
 }
+// Keep the visible strike aligned with its committed damage direction while a
+// player dodges past. Tracking resumes after the complete recovery.
+export function enemyFacingTarget(enemy,player){return enemy.windup>0||enemy.strike>0?Math.atan2(enemy.aimX??0,enemy.aimZ??1):Math.atan2(player.x-enemy.x,player.z-enemy.z);}

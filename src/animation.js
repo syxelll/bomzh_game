@@ -1,3 +1,4 @@
+import {constrainWrists} from './hand-anatomy.js';
 import {applyCombatActionPose} from './grapple.js';
 import {applyDisgustPose} from './disgust.js';
 import {applyWeaponPose,applyBottleSmashPose} from './weapon-animation.js';
@@ -74,9 +75,10 @@ export function pose(actor,time,walk,kind,progress){
  if(actor.combatPose&&actor.userActions?.clips[actor.combatPose.kind]){kind=actor.combatPose.kind;progress=actor.combatPose.elapsed/actor.userActions.clips[kind].duration;walk=false;}
  if(actor.reaction&&actor.userActions?.clips.hurt&&!actor.grabbed&&!(actor.down>0)&&actor.health!==0){kind='hurt';progress=actor.reaction.elapsed/actor.userActions.clips.hurt.duration;walk=false;}
  if(actor.disgust?.remaining>0&&actor.health>0&&actor.userActions?.clips.disgust){kind='disgust';progress=1-actor.disgust.remaining/actor.disgust.duration;walk=false;}
+ if(!kind&&!walk&&actor.spec&&actor.health>0&&actor.userActions?.clips.enemy_guard){kind='enemy_guard';progress=0;}
  const baked=actor.userActions?.clips[kind]?.grounding==='baked';
  const weapon=actor.weaponType&&!actor.userActions?.clips.weapon_idle&&(!kind||kind==='jab')&&!(actor.dodge>0)&&!(actor.hurt>0);
- const authored=applyUserAction(actor,time,walk,kind==='bottle_smash'&&!baked?null:weapon&&kind==='jab'?null:kind,progress);if(authored){if(kind==='bottle_smash'&&!baked){applyBottleSmashPose(actor,progress);applyReferenceHands(actor,'weapon_idle');}if(weapon){applyWeaponPose(actor,progress,kind==='jab');applyReferenceHands(actor);}if(!actor.userActions?.clips.disgust)applyDisgustPose(actor);blendUserTransition(actor,time,kind==='bottle_smash'?'bottle-smash':weapon?(kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-'+authored):authored);if(baked){for(const m of actor.posedWorld.values())m.elements[13]+=actor.bakedGroundOffset??0;actor.feetY=feetHeight(actor);}else groundPose(actor,0,{kind:authored==='dodge'?'dodge':kind,time});if(!baked)applyCombatActionPose(actor);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
+ const authored=applyUserAction(actor,time,walk,kind==='bottle_smash'&&!baked?null:weapon&&kind==='jab'?null:kind,progress);if(authored){if(kind==='bottle_smash'&&!baked){applyBottleSmashPose(actor,progress);applyReferenceHands(actor,'weapon_idle');}if(weapon){applyWeaponPose(actor,progress,kind==='jab');applyReferenceHands(actor);}if(!actor.userActions?.clips.disgust)applyDisgustPose(actor);blendUserTransition(actor,time,kind==='bottle_smash'?'bottle-smash':weapon?(kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-'+authored):authored);if(baked){for(const m of actor.posedWorld.values())m.elements[13]+=actor.bakedGroundOffset??0;actor.feetY=feetHeight(actor);}else groundPose(actor,0,{kind:authored==='dodge'?'dodge':kind,time});if(!baked)applyCombatActionPose(actor);constrainWrists(actor);updateRigidAttachments(actor);return sampleMotion(time,walk,kind,progress,actor.combo??1);}
  const motionTime=walk&&Number.isFinite(actor.walkDistance)?actor.walkDistance/(actor.walkStride??(actor.height??1.85)*.65)*(2*Math.PI/9):time;
  const p=sampleMotion(motionTime,walk,kind,progress,actor.combo??1);
  if(actor.dodge>0){p.drop-=.12;p.lean+=.25;}
@@ -106,6 +108,6 @@ export function pose(actor,time,walk,kind,progress){
  if(weapon){applyWeaponPose(actor,progress,kind==='jab');const id=kind==='jab'?'weapon-strike:'+actor.attackSerial:'weapon-carry';if(actor.motionId!==id){actor.motionId=id;actor.transitionStart=time;}}
  if(kind==='bottle_smash'&&!baked)applyBottleSmashPose(actor,progress);
  applyReferenceHands(actor);
- if(!actor.userActions?.clips.disgust)applyDisgustPose(actor);blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor,0,{kind,time});applyCombatActionPose(actor);updateRigidAttachments(actor);
+ if(!actor.userActions?.clips.disgust)applyDisgustPose(actor);blendUserTransition(actor,time,kind??(walk?'walk':'fallback-idle'));groundPose(actor,0,{kind,time});applyCombatActionPose(actor);constrainWrists(actor);updateRigidAttachments(actor);
  return p;
 }
