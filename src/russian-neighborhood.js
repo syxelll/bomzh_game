@@ -62,14 +62,15 @@ export function addRussianDetails(root,kind='street',variant=0){
   // An enamel address replaces the old neon-like courtyard plaque on clear masonry.
   const plate=root.getObjectByName('Weathered_street_sign');if(plate){const face=plate.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry');if(face){const g=face.geometry,uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(.02+uv.getX(i)*.96)/2,(3+.02+uv.getY(i)*.96)/4);face.material=m.signs;}}
  }else if(kind==='courtyard'){
-  entrance(15.15,-8.815,1.18,2.27);entrance(23.2,-3.155,1.3,2.3);
-  box(.94,.26,.03,m.blue,24.9,2.55,-3.43);sign(0,24.9,2.55,-3.41,.9,.22);
+  const setback=root.userData.housingSetback??0,addressY=setback?2.15:2.55;
+  entrance(15.15,-8.815-setback,1.18,2.27);entrance(23.2,-3.155,1.3,2.3);
+  box(.94,.26,.03,m.blue,24.9,addressY,-3.43);sign(0,24.9,addressY,-3.41,.9,.22);
   // Notices are mounted on a freestanding board, away from every window and doorway.
   const x=variant%2?19.2:6.1,z=-4.35;for(const dx of[-.54,.54])rod([x+dx,0,z],[x+dx,2.05,z],.025,m.metal);box(1.25,1.25,.11,m.blue,x,1.45,z);box(1.1,1.1,.025,m.wood,x,1.45,z+.065);sign(2,x,1.91,z+.085,1.02,.22);for(let i=0;i<4;i++)sign(i%2?4:3,x-.27+i%2*.54,1.55-Math.floor(i/2)*.4,z+.087,.46,.34);counts.notices=4;
   if(variant===0){const x=17.6,z=-4.9;box(2.1,.12,1.7,m.soil,x,.06,z);for(const dz of[-.88,.88])box(2.25,.22,.12,m.blue,x,.14,z+dz);for(const dx of[-1.06,1.06])box(.12,.22,1.7,m.green,x+dx,.14,z);
    rod([x,0,z],[x,2.1,z],.065,m.wood);const roof=new THREE.ConeGeometry(1.12,.48,24);add(roof,m.green,x,2.15,z);const band=new THREE.TorusGeometry(1.1,.035,5,24);band.rotateX(Math.PI/2);add(band,m.blue,x,1.92,z);counts.playground++;
   }
-  if(variant===3){for(const x of[7.3,11,18.7]){box(.045,2.15,.035,m.trim,x,1.12,-5.785);for(const dx of[-1.3,1.3])for(const yy of[.55,1.75])box(.17,.055,.06,m.rubber,x+dx,yy,-5.76);sign(5,x,1.67,-5.755,.9,.4);}}
+  if(variant===3){for(const x of[7.3,11,18.7]){box(.045,2.15,.035,m.metal,x,1.12,-5.785);for(const dx of[-1.3,1.3])for(const yy of[.55,1.75])box(.17,.055,.06,m.rubber,x+dx,yy,-5.76);sign(5,x,1.67,-5.755,.9,.4);}}
  }else{
   for(const offset of[0,13]){sign(6,offset+2.15,2.15,-3.205,.48,.16);sign(2,offset+6.9,2.37,-3.16,1.02,.22);for(let i=0;i<6;i++)sign(i%2?4:3,offset+6.6+i%2*.48,2.13-Math.floor(i/2)*.37,-3.205,.35,.29);sign(7,offset+.95,1.8,-3.44,.55,.27);counts.notices+=6;}
  }

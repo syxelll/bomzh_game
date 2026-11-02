@@ -265,6 +265,8 @@ canopies. The protruding entrance paving spur is removed.
 Planters are smaller, grass is sparse, and stalls/garages/workshop/sports equipment
 leave entrance access clear.
 
+В гаражном и ремонтном дворах жилые здания отодвинуты на 18 м. У ближней границы стоят одноэтажные хозяйственные корпуса, за гаражами проходит низкая ограда с воротами; основание двора продолжается до дальних домов. Мастерская имеет отдельные стены, наклонную металлическую крышу с водостоком и дощатые распашные ворота. Трубы лежат на опорах сбоку от входа. Верстак стоит у ограды рядом с мастерской: четыре ножки, нижние связи и полка, тиски и инструментальная доска. Проверка нужного двора: `YARD=garages node tests/courtyards-smoke.mjs` или `YARD=workshop node tests/courtyards-smoke.mjs`.
+
 `src/trash-details.js` replaces imported faceted bags with smooth creased tied
 plastic and the closed dumpster with a rounded, reinforced wheeled container.
 `src/hit-effects.js` pools 128 painted impact puffs, sparks and brief burst cores
