@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {BURP_CAMERA_FOCAL_LENGTH} from './burp-camera.js';
 export class GameCamera{
  constructor(camera,{reducedMotion=false}={}){this.camera=camera;this.focus=new THREE.Vector3(-7.3,1,0);this.lead=.7;this.distance=6.2;this.shake=0;this.shakeClock=0;this.shakeOverride=null;this.savedBase=null;this.framingCamera=camera.clone();this.reducedMotion=reducedMotion;this.position=new THREE.Vector3();this.target=new THREE.Vector3();}
  cinematic(player,target,elapsed,dt,width,height){
@@ -13,11 +14,15 @@ export class GameCamera{
  }
  isShakeEnabled(){return this.shakeOverride??!this.reducedMotion;}
  setShakeEnabled(enabled){this.shakeOverride=!!enabled;if(!enabled)this.shake=0;}
- restoreBase(){if(!this.savedBase)return;this.camera.position.copy(this.savedBase.position);this.camera.quaternion.copy(this.savedBase.quaternion);if(this.savedBase.fov!==undefined&&this.camera.fov!==this.savedBase.fov){this.camera.fov=this.savedBase.fov;this.camera.updateProjectionMatrix();}}
+ restoreBase(){if(!this.savedBase)return;this.camera.position.copy(this.savedBase.position);this.camera.quaternion.copy(this.savedBase.quaternion);if(this.savedBase.filmGauge!==undefined)this.camera.filmGauge=this.savedBase.filmGauge;if(this.savedBase.fov!==undefined&&this.camera.fov!==this.savedBase.fov){this.camera.fov=this.savedBase.fov;this.camera.updateProjectionMatrix();}}
  impact(strength=.18){if(this.isShakeEnabled()&&Number.isFinite(strength)&&strength>0)this.shake=Math.min(.3,this.shake+strength);}
  applyShake(dt){
   const camera=this.camera;
+  // Fit the virtual sensor to the existing gameplay crop at the reference's
+  // 24 mm lens. Changing aspect or arena framing must not reveal extra scenery.
+  camera.filmGauge=2*BURP_CAMERA_FOCAL_LENGTH*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*Math.max(camera.aspect,1);
   this.savedBase??={position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};this.savedBase.position.copy(camera.position);this.savedBase.quaternion.copy(camera.quaternion);this.savedBase.fov=camera.fov;
+  this.savedBase.filmGauge=camera.filmGauge;
   this.framingCamera.copy(camera,false);this.framingCamera.updateMatrixWorld(true);
   this.shakeClock+=Math.max(0,dt);this.shake=Math.max(0,this.shake-Math.max(0,dt)*1.25);
   if(!this.isShakeEnabled()||this.shake===0)return;
@@ -28,14 +33,14 @@ export class GameCamera{
  }
  burpShot(shot,player,width){
   const p=shot.sample({reducedMotion:this.reducedMotion});if(p.weight<=0)return;
-  // The unmodified framingCamera continues to control arenas and spawning.
-  const camera=this.camera,base=this.savedBase,centre=new THREE.Vector3(player.x,1.02,player.z),offset=base.position.clone().sub(centre),baseAngle=Math.atan2(offset.x,offset.z),baseRadius=Math.hypot(offset.x,offset.z);
-  // Blend on an arc, not through the actor when returning from the far side.
-  const angle=this.reducedMotion?baseAngle:THREE.MathUtils.lerp(baseAngle,shot.startAngle+p.angle,p.weight),distance=THREE.MathUtils.lerp(baseRadius,this.reducedMotion?baseRadius*.96:p.distance,p.weight),height=THREE.MathUtils.lerp(offset.y,p.distance*.13,p.weight);
-  camera.position.copy(centre).add(new THREE.Vector3(Math.sin(angle)*distance,height,Math.cos(angle)*distance));
-  camera.lookAt(this.reducedMotion?this.focus:this.focus.clone().lerp(centre,p.weight));
-  if(this.isShakeEnabled()&&p.roll)camera.rotateZ(p.roll*p.weight);
-  camera.fov=THREE.MathUtils.lerp(base.fov,this.reducedMotion?base.fov:width<650?50:40,p.weight);camera.updateProjectionMatrix();
+  // Keep the normal scene-facing camera, add the small reference movement,
+  // then preserve its separate impact shake instead of overwriting it.
+  const camera=this.camera,base=this.savedBase,shakeOffset=camera.position.clone().sub(base.position),shakeRotation=base.quaternion.clone().invert().multiply(camera.quaternion),offset=base.position.clone().sub(this.focus).multiplyScalar(p.distanceScale);
+  offset.applyAxisAngle(new THREE.Vector3(0,1,0),p.angle);
+  const follow=this.reducedMotion?new THREE.Vector3():new THREE.Vector3(THREE.MathUtils.clamp(player.x-this.focus.x,-.25,.25),.035,THREE.MathUtils.clamp(player.z-this.focus.z,-.15,.15)).multiplyScalar(p.weight);
+  const target=this.focus.clone().add(follow);camera.position.copy(target).add(offset);camera.lookAt(target);
+  camera.position.add(shakeOffset);camera.quaternion.multiply(shakeRotation);
+  camera.filmGauge=base.filmGauge;camera.setFocalLength(p.focalLength);
  }
 
  update({player,enemies=[],arena=null,time=0,dt=.016,width=1000,height=700}){

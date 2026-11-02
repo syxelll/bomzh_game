@@ -1,4 +1,5 @@
 import *as THREE from 'three';
+import {BURP_CAMERA_MAX_ARC} from './burp-camera.js';
 export const WALL_KICK={duration:1.15,push:.27,hit:.68,cost:28,cooldown:2.8,damage:34,reach:2.6};
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t,angleMix=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
@@ -21,13 +22,13 @@ export function findKickWall(player,meshes,{directions=[{x:0,z:-1},{x:-1,z:0},{x
  }return nearest;
 }
 
-// Sample the static surroundings once when a camera shot starts, leaving a
-// near-plane margin. A wall shortens the orbit instead of zooming into a face.
+// Check only the short, scene-facing arc. Occlusion can shorten the motion,
+// but open space must never turn it into a full orbit.
 export function safeBurpArc(player,meshes,{startAngle=.13}={}){const ray=new THREE.Raycaster(),origin=new THREE.Vector3(player.x,1.02,player.z),side=player.facing||1;let arc=0;
- for(let i=0;i<=18;i++){const a=startAngle+side*Math.PI*i/18,centre=origin.clone().add(new THREE.Vector3(Math.sin(a)*4, .52,Math.cos(a)*4));let blocked=false;
+ for(let i=0;i<=6;i++){const a=startAngle+side*BURP_CAMERA_MAX_ARC*i/6,centre=origin.clone().add(new THREE.Vector3(Math.sin(a)*4, .52,Math.cos(a)*4));let blocked=false;
   for(const offset of[new THREE.Vector3(),new THREE.Vector3(0,0,-.60),new THREE.Vector3(side*.60,0,0)]){const target=centre.clone().add(offset),dir=target.sub(origin),distance=dir.length();ray.set(origin,dir.normalize());ray.near=.3;ray.far=distance;if(ray.intersectObjects(meshes,false).length){blocked=true;break;}}
-  if(blocked)break;arc=Math.PI*i/18;
- }return Math.max(0,arc-.07);
+  if(blocked)break;arc=BURP_CAMERA_MAX_ARC*i/6;
+ }return Math.max(0,arc-.01);
 }
 
 export function beginWallKick(player,wall,enemies,{bounds=[-Infinity,Infinity],minZ=-2,maxZ=2.1,maxHeight=.95,duration=WALL_KICK.duration,push=WALL_KICK.push,hit=WALL_KICK.hit}={}){
