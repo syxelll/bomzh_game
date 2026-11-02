@@ -10,7 +10,10 @@ export class BurpCameraShot{
  update(dt){if(!this.active)return;this.elapsed+=Math.max(0,dt);if(this.elapsed>=(this.cancelled===null?this.duration:this.cancelled+this.returnTime))this.active=false;}
  sample({reducedMotion=false}={}){if(!this.active)return {weight:0,angle:0,distanceScale:1,focalLength:BURP_CAMERA_FOCAL_LENGTH,roll:0};const p=clamp(Math.min(this.elapsed,this.cancelled??Infinity)/this.duration);
   const release=this.cancelled===null?1:1-smooth((this.elapsed-this.cancelled)/this.returnTime);
-  const weight=smooth(p/.25)*(1-smooth((p-.55)/.40))*release;
-  return {weight,angle:reducedMotion?0:this.facing*this.arc*weight,distanceScale:1-(reducedMotion?.015:.03)*weight,focalLength:BURP_CAMERA_FOCAL_LENGTH+(reducedMotion?0:4*weight),roll:0};
+  // Hold the close view through the gesture, then pull away quickly with a
+  // short easing tail. Keep the reduced-motion version gentle.
+  const pullBack=reducedMotion?1-smooth((p-.55)/.40):(1-clamp((p-.74)/.20))**3;
+  const weight=smooth(p/(reducedMotion?.25:.20))*pullBack*release;
+  return {weight,angle:reducedMotion?0:this.facing*this.arc*weight,distanceScale:1-(reducedMotion?.015:.035)*weight,focalLength:BURP_CAMERA_FOCAL_LENGTH+(reducedMotion?0:5*weight),roll:0};
  }
 }
