@@ -32,3 +32,18 @@ export function applyPaintedEntrance(root){const seen=new Set();root.traverse(me
  #ifdef USE_MAP
   diffuseColor*=texture2D(map,entranceUV);
  #endif`);};m.customProgramCacheKey=()=>floor?'painted-entrance-floor-v1':'painted-entrance-wall-v1';});}
+
+export function applyPaintedMetro(root){const seen=new Set();root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const m=mesh.material;if(seen.has(m))return;seen.add(m);const palette={
+ 'Metro aged ivory enamel':['facade','#b9b7a1'],
+ 'Metro faded teal enamel':['facade','#769284'],
+ 'Metro worn steel':['metal','#bac4b3'],
+ 'Metro cracked brown vinyl':['facade','#8d6e50'],
+ 'Metro worn rubber floor':['facade','#6f776c'],
+ };const setting=palette[m.name];if(!setting)return;const floor=m.name==='Metro worn rubber floor';m.map=maps[setting[0]]??null;m.color.set(setting[1]);m.roughness=floor?1:m.name.includes('vinyl')?.84:.9;m.bumpMap=null;m.normalMap=null;m.needsUpdate=true;
+ m.onBeforeCompile=shader=>{shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 metroSurfaceUV;').replace('#include <project_vertex>',`#include <project_vertex>
+ vec3 metroSurface=(modelMatrix*vec4(transformed,1.)).xyz;
+ metroSurfaceUV=${floor?'metroSurface.xz/vec2(3.8,2.6)':'vec2(abs(normal.z)>.45?metroSurface.x:metroSurface.z,metroSurface.y)/vec2(3.,2.)'};`);shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 metroSurfaceUV;').replace('#include <map_fragment>',`#ifdef USE_MAP
+ vec4 paintedMetro=texture2D(map,metroSurfaceUV);
+ ${floor?'paintedMetro.rgb=vec3(dot(paintedMetro.rgb,vec3(.299,.587,.114)));':''}
+ diffuseColor*=paintedMetro;
+ #endif`);};m.customProgramCacheKey=()=>floor?'painted-metro-rubber-v1':'painted-metro-surface-v1';});}
