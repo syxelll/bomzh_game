@@ -49,7 +49,7 @@ result={'version':1,'sourceSha256':hashlib.sha256(pathlib.Path(args.source).read
 aliases={'AW • rig • Walk.001':'walk','mocha':'spray','rigaet':'burp','rivok':'dodge','scrap_idle':'weapon_idle','scrap_pickup':'weapon_pickup',**{f'scrab_{i:02d}_combo':f'weapon_{i:02d}_combo' for i in range(1,4)}}
 for action in list(bpy.data.actions):
  clip_name=aliases.get(action.name,action.name)
- if clip_name not in {'idle','jab_01','kick','walk','run','spray','burp','dodge','weapon_idle','weapon_pickup','bottle_pickup'} and not clip_name.endswith('_combo'):continue
+ if clip_name not in {'idle','jab_01','kick','walk','run','spray','burp','dodge','weapon_idle','weapon_pickup','bottle_pickup','wall_kick'} and not clip_name.endswith('_combo'):continue
  rig.animation_data.action=None
  for bone in rig.pose.bones:
   if bone.name in bases:bone.matrix_basis=bases[bone.name]
@@ -62,7 +62,7 @@ for action in list(bpy.data.actions):
   root_position=(C@evaluated.matrix_world@evaluated.pose.bones['root.x'].matrix).translation
   if anchor is None:anchor=root_position.copy()
   shift=root_position-anchor
-  motion=Matrix.Translation((-shift.x,0,-shift.z)) if clip_name in {'walk','run','idle','dodge','weapon_idle','weapon_pickup','bottle_pickup'} else Matrix.Identity(4)
+  motion=Matrix.Translation((-shift.x,0,-shift.z)) if clip_name in {'walk','run','idle','dodge','weapon_idle','weapon_pickup','bottle_pickup','wall_kick'} else Matrix.Identity(4)
   for name in names:
    delta=motion@C@evaluated.matrix_world@evaluated.pose.bones[name].matrix@baseline[name].inverted()@invC
    values.extend(round(delta[row][col],6) for col in range(4) for row in range(4))
@@ -82,6 +82,7 @@ for action in list(bpy.data.actions):
   contact=max(measure,key=lambda f:max(f['foot.l'][2],f['foot.r'][2]))
   markers['hit']=contact['frame']-start
  result['clips'][clip_name]={'start':start,'end':end,'frames':frames,'duration':(end-start)/result['fps'],'markers':markers}
+ if clip_name=='wall_kick':result['clips'][clip_name]['source']=action.name
  print('ACTION_MEASURE',action.name,json.dumps(measure),flush=True)
 (root/'public/models/hobo-actions.json').write_text(json.dumps(result,separators=(',',':')))
 print('EXPORTED',len(names),'bones',list(result['clips']), 'fps',result['fps'],flush=True)

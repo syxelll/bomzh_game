@@ -13,11 +13,11 @@ export class GameCamera{
  }
  isShakeEnabled(){return this.shakeOverride??!this.reducedMotion;}
  setShakeEnabled(enabled){this.shakeOverride=!!enabled;if(!enabled)this.shake=0;}
- restoreBase(){if(!this.savedBase)return;this.camera.position.copy(this.savedBase.position);this.camera.quaternion.copy(this.savedBase.quaternion);}
+ restoreBase(){if(!this.savedBase)return;this.camera.position.copy(this.savedBase.position);this.camera.quaternion.copy(this.savedBase.quaternion);if(this.savedBase.fov!==undefined&&this.camera.fov!==this.savedBase.fov){this.camera.fov=this.savedBase.fov;this.camera.updateProjectionMatrix();}}
  impact(strength=.18){if(this.isShakeEnabled()&&Number.isFinite(strength)&&strength>0)this.shake=Math.min(.3,this.shake+strength);}
  applyShake(dt){
   const camera=this.camera;
-  this.savedBase??={position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};this.savedBase.position.copy(camera.position);this.savedBase.quaternion.copy(camera.quaternion);
+  this.savedBase??={position:new THREE.Vector3(),quaternion:new THREE.Quaternion()};this.savedBase.position.copy(camera.position);this.savedBase.quaternion.copy(camera.quaternion);this.savedBase.fov=camera.fov;
   this.framingCamera.copy(camera,false);this.framingCamera.updateMatrixWorld(true);
   this.shakeClock+=Math.max(0,dt);this.shake=Math.max(0,this.shake-Math.max(0,dt)*1.25);
   if(!this.isShakeEnabled()||this.shake===0)return;
@@ -25,6 +25,17 @@ export class GameCamera{
   const offset=new THREE.Vector3(.09*a*(Math.sin(t*64+1.1)+.4*Math.sin(t*101))/1.4,.065*a*Math.cos(t*79+.4),.025*a*Math.sin(t*53));
   offset.applyQuaternion(this.savedBase.quaternion);camera.position.add(offset);
   camera.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(.008*a*Math.sin(t*71),.006*a*Math.cos(t*59),.018*a*Math.sin(t*67+.8))));
+ }
+ burpShot(shot,player,width){
+  const p=shot.sample({reducedMotion:this.reducedMotion});if(p.weight<=0)return;
+  // The unmodified framingCamera continues to control arenas and spawning.
+  const camera=this.camera,base=this.savedBase,centre=new THREE.Vector3(player.x,1.02,player.z),offset=base.position.clone().sub(centre),baseAngle=Math.atan2(offset.x,offset.z),baseRadius=Math.hypot(offset.x,offset.z);
+  // Blend on an arc, not through the actor when returning from the far side.
+  const angle=this.reducedMotion?baseAngle:THREE.MathUtils.lerp(baseAngle,shot.startAngle+p.angle,p.weight),distance=THREE.MathUtils.lerp(baseRadius,this.reducedMotion?baseRadius*.96:p.distance,p.weight),height=THREE.MathUtils.lerp(offset.y,p.distance*.13,p.weight);
+  camera.position.copy(centre).add(new THREE.Vector3(Math.sin(angle)*distance,height,Math.cos(angle)*distance));
+  camera.lookAt(this.reducedMotion?this.focus:this.focus.clone().lerp(centre,p.weight));
+  if(this.isShakeEnabled()&&p.roll)camera.rotateZ(p.roll*p.weight);
+  camera.fov=THREE.MathUtils.lerp(base.fov,this.reducedMotion?base.fov:width<650?50:40,p.weight);camera.updateProjectionMatrix();
  }
 
  update({player,enemies=[],arena=null,time=0,dt=.016,width=1000,height=700}){

@@ -68,3 +68,11 @@ header{padding:12px 14px;gap:10px}.brand,footer,#objective,#location-badge{displ
 @media(max-width:360px){#controls .actions{grid-template-columns:repeat(3,53px);max-width:169px}.actions button{width:53px}.stats>span{font-size:6px!important}.header-actions #shop-open{font-size:8px}}
 
 .starting-location>div{flex-wrap:wrap}
+
+#controls .actions{display:grid;grid-template-columns:repeat(4,72px);gap:7px;max-width:none;align-items:end}
+#combat-combo-hint{grid-column:1/-1;text-align:center;font-size:10px;color:#e5e9dc;text-shadow:0 1px 3px #000;pointer-events:none;line-height:1.3}
+.touch-combos{display:none}
+#controls .actions button.is-held{background:#5c7b83ed!important;border-color:#fff!important}
+#controls .actions button.unavailable{opacity:.55}
+#super-panel.ready{border-color:#d8bc76;box-shadow:0 0 10px #d8bc7640}
+@media(pointer:coarse),(max-width:850px){#controls .actions{grid-template-columns:repeat(2,62px);gap:6px;max-width:130px}.actions button{width:62px;height:62px!important}#combat-combo-hint{font-size:9px}.keyboard-combos{display:none}.touch-combos{display:inline}#weapon-pickup{bottom:180px!important}}
